@@ -1,0 +1,1344 @@
+# Implementation Log — Web QA Stress Agent
+# Started: 2026-03-02
+#
+# Rules:
+# - Append entries in reverse chronological order (newest at top)
+# - Each entry includes: timestamp (ISO), summary, files changed, verify commands
+
+## 2026-03-04T20:00:00Z
+Summary:
+- UI Tokens Consolidation
+
+  **Part 1 — tokens.css**
+  - Created apps/web/src/styles/tokens.css with complete design token set
+  - Core palette, accent, role colors (--purple, --orange), status colors
+  - Transparency tokens: --overlay, --shadow, --accent-focus, --accent-subtle, --accent-selection, --warn-subtle, --pass-subtle, --fail-subtle
+  - Spacing tokens (--sp-1 through --sp-8), border radius tokens (--radius-sm through --radius-full)
+  - Font size tokens (--fs-xs through --fs-3xl), font family tokens
+
+  **Part 2 — presets.css**
+  - Created apps/web/src/styles/presets.css with reusable preset classes
+  - .ui-panel (surface card), .ui-badge (inline badge), .ui-table (full table styling)
+  - .ui-tabs/.ui-tab (tab bar), .ui-chip (tag/chip), .ui-link, .ui-mono
+
+  **Part 3 — index.css migration**
+  - Removed :root block (variables now in tokens.css)
+  - Replaced 4x #8b5cf6 → var(--purple), 1x #f97316 → var(--orange), 2x #f59e0b → var(--warn)
+  - Replaced all rgba() hardcoded values with transparency tokens (10 substitutions)
+  - Replaced var(--skip) → var(--warn) (3 uses), var(--running) → var(--accent) (1 use)
+  - Replaced all border-radius magic numbers with tokens (34 substitutions across 6 radius sizes)
+  - Removed duplicate base rules from .badge, .ownership-badge, .repo-card, .stage-card, .ownership-hint
+
+  **Part 4 — Component ui-* class additions**
+  - Added ui-badge to all badge consumers (13 component files, both static and template literal patterns)
+  - Added ui-panel to RepoCards.tsx, StageCards.tsx, JourneyDetails.tsx (ownership-hint)
+  - Updated statusBadge helper in StageCards.tsx
+
+  **Part 5 — Wiring**
+  - Updated main.tsx: import tokens.css → presets.css → index.css (correct cascade order)
+
+Files changed:
+- apps/web/src/styles/tokens.css (new)
+- apps/web/src/styles/presets.css (new)
+- apps/web/src/main.tsx
+- apps/web/src/index.css
+- apps/web/src/components/JourneyDetails.tsx
+- apps/web/src/components/RepoCards.tsx
+- apps/web/src/components/StageCards.tsx
+- apps/web/src/components/RunCard.tsx
+- apps/web/src/components/RunHeaderBar.tsx
+- apps/web/src/components/RunSummary.tsx
+- apps/web/src/components/RunConsole.tsx
+- apps/web/src/components/JourneysTable.tsx
+- apps/web/src/components/IssuesTable.tsx
+- apps/web/src/components/IssuesList.tsx
+- apps/web/src/components/InspectorDetails.tsx
+- apps/web/src/components/ArtifactsPanel.tsx
+- apps/web/src/components/CoverageDetails.tsx
+- Implementation.txt
+
+Verify:
+- npm run build && npm run build --workspace=apps/web
+- Visual: all colors, badges, panels, border-radius render identically
+
+## 2026-03-04T19:00:00Z
+Summary:
+- Healer UI Polish + Dialog System
+
+  **Part 1 — Dialog Component**
+  - Created apps/web/src/components/ui/Dialog.tsx
+    - Lightweight accessible dialog: ESC to close, focus management (first focusable on open, restore on close)
+    - aria-modal, role="dialog"
+    - Exports: Dialog, DialogHeader, DialogBody, DialogFooter
+    - Uses existing .modal-overlay + .modal-card CSS
+  - Added CSS: .modal-card-wide (520px), .modal-body, .modal-description, .modal-footer,
+    .modal-close-btn, .modal-header-title
+  - Increased .modal-card border-radius from 8px to 12px
+
+  **Part 2 — SavePinnedTestModal Refactor**
+  - Replaced inline styles with Dialog component + form-group CSS classes
+  - Added description text, from→to patch preview summary
+  - Now accepts patches prop for detailed preview
+
+  **Part 3 — Always-Visible Step Actions + Journey Actions Toolbar**
+  - Removed opacity: 0 / hover reveal on .step-actions → buttons always visible
+  - Made .step-row display: flex for proper inline layout
+  - Added sticky .journey-actions-bar between header and steps:
+    - Modify (primary), Save as Pinned (secondary, when patches), Repair & Run (when patches),
+      Clear (ghost, when patches), patch count badge
+  - Removed separate .pinned-save-bar — consolidated into toolbar
+
+  **Part 4 — TargetPicker Polish**
+  - Added "Current target" block showing original step selector + label
+  - Added search filter input in header (filters by label or selector text)
+  - Changed to select-then-apply flow: click row highlights, Apply button confirms
+  - Added .target-picker-current, .target-picker-row-selected, .target-picker-footer,
+    .target-picker-search CSS
+  - Increased border-radius from 4px to 8px, padding from 4px to 6px
+
+  **Part 5 — Visual Consistency**
+  - Fixed .btn-sm.btn-primary: width auto, margin-top 0 (no longer stretches to 100%)
+  - Added .btn-ghost variant (transparent bg, muted text)
+  - Added .btn-secondary:hover state
+  - Added :focus-visible rings on .btn and form inputs
+  - Increased .step-action-btn border-radius from 3px to 4px, added hover backgrounds
+
+Files created:
+- apps/web/src/components/ui/Dialog.tsx
+
+Files modified:
+- apps/web/src/components/SavePinnedTestModal.tsx (Dialog refactor + patches prop)
+- apps/web/src/components/JourneyDetails.tsx (journey-actions-bar, remove pinned-save-bar)
+- apps/web/src/components/TargetPicker.tsx (current target, search, select-then-apply)
+- apps/web/src/index.css (all CSS changes)
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+  npm run dev
+
+## 2026-03-04T18:00:00Z
+Summary:
+- Healer / Modify Flow — Interactive QA Agent
+
+  **Phase 1 — Shared Types + Server Endpoints**
+  - Added StepEditPatch, PinnedTest, PinnedTestSummary to packages/shared/src/types.ts
+  - Added StepEditPatchSchema, PinnedTestSchema to packages/shared/src/schema.ts
+  - Created apps/server/src/routes/pinned.ts: full CRUD + run router
+    - GET / (list summaries), POST / (create), GET /:testId, DELETE /:testId, POST /:testId/run
+    - Storage: data/runs/<slug>/.pinned_tests/<testId>.json
+  - Added startPinnedRun() + specToCandidateJourney() to apps/server/src/spawn.ts
+    - Converts JourneySpec → CandidateJourney for runner's file: mode
+    - No runner changes needed
+  - Added POST /:runId/journeys/:journeyId/repair endpoint to runs.ts
+    - Reads original spec from journeys.executed.json, applies patches, creates pinned test, spawns repair run
+  - Mounted pinnedRouter at /api/projects/:slug/pinned-tests
+
+  **Phase 2 — Web Types + API Functions**
+  - Added SelectorSpec, StepSpec, JourneySpec, ExecutedJourneyRecord, StepEditPatch,
+    PinnedTestSummary, PinnedTest, ActionTarget, TargetSuggestion to web types.ts
+  - Added 7 API functions: fetchPageActions, fetchExecutedJourneys, fetchPinnedTests,
+    createPinnedTest, runPinnedTest, deletePinnedTest, repairJourney
+
+  **Phase 3 — Core UI Components**
+  - Created TargetPicker.tsx: alternative selector picker with deterministic scoring
+    - Token overlap for label similarity (+30), selector quality (+20 testid/role),
+      confidence (+10), timestamp penalty (-20), destructive penalty (-15)
+    - Table of top 20 candidates with reason chips + custom selector input
+  - Created SavePinnedTestModal.tsx: modal for naming/tagging pinned tests
+  - Modified JourneyDetails.tsx: Modify/Repair buttons per step, patch state management,
+    TargetPicker inline integration, "Save as Pinned Test" / "Repair & Run" bar
+  - Wired callbacks through Inspector.tsx → InspectorDetails.tsx → JourneyDetails.tsx
+  - App.tsx: handleSavePinnedTest (calls createPinnedTest), handleRepairJourney
+    (calls repairJourney, auto-selects new repair run)
+
+  **Phase 4 — Sidebar Pinned Tests**
+  - Created PinnedTestsList.tsx: compact list under each project group
+    - Fetch/Run/Delete per pinned test
+  - Integrated PinnedTestsList into ProjectNav.tsx under each project group
+
+  **CSS**
+  - step-actions (inline, opacity 0→1 on hover), step-action-btn, step-action-btn-repair
+  - step-row-patched (accent left border), patch-badge (blue chip)
+  - pinned-save-bar, target-picker, target-picker-table, target-picker-header
+  - reason-chip, reason-chip-positive, reason-chip-negative
+  - target-picker-custom (input row)
+  - pinned-tests-section, pinned-tests-header, pinned-test-card, pinned-test-actions
+
+Files created:
+- apps/server/src/routes/pinned.ts
+- apps/web/src/components/TargetPicker.tsx
+- apps/web/src/components/SavePinnedTestModal.tsx
+- apps/web/src/components/PinnedTestsList.tsx
+
+Files modified:
+- packages/shared/src/types.ts (StepEditPatch, PinnedTest, PinnedTestSummary)
+- packages/shared/src/schema.ts (StepEditPatchSchema, PinnedTestSchema)
+- apps/server/src/index.ts (mount pinnedRouter)
+- apps/server/src/spawn.ts (StartPinnedRunInput, specToCandidateJourney, startPinnedRun)
+- apps/server/src/routes/runs.ts (repair endpoint)
+- apps/web/src/types.ts (all healer/modify types)
+- apps/web/src/api.ts (7 new functions)
+- apps/web/src/components/JourneyDetails.tsx (Modify/Repair + TargetPicker + patches)
+- apps/web/src/components/InspectorDetails.tsx (pass-through props)
+- apps/web/src/components/Inspector.tsx (pass-through props)
+- apps/web/src/App.tsx (handlers + prop threading)
+- apps/web/src/components/ProjectNav.tsx (PinnedTestsList integration)
+- apps/web/src/index.css (all healer/modify CSS)
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+  npm run dev
+
+## 2026-03-04T16:00:00Z
+Summary:
+- Fix Blank Screen + Error Boundary + Auto-select Latest Run
+
+  **Part 1 — Global ErrorBoundary + CrashPanel**
+  - Created ErrorBoundary (React class component) with getDerivedStateFromError + componentDidCatch
+  - CrashPanel renders: title, error message, Reload/Copy buttons, collapsible stack trace
+  - Wrapped <App /> in <ErrorBoundary> in main.tsx
+
+  **Part 2 — Safe empty/loading/error states**
+  - Created EmptyState component (title, hint, optional action CTA, error variant)
+  - Created LoadingState component (spinner animation + message)
+  - DashboardLayout shows contextual empty states: "Select a run" or "No runs yet" with New Run CTA
+  - Center pane shows LoadingState while data fetches, EmptyState on failure
+
+  **Part 3 — Auto-select latest run**
+  - App.tsx: handleRunsUpdate auto-selects newest run on first load (sorted by startedAt)
+  - Uses didAutoSelectRef + userSelectedRef to prevent infinite re-triggers
+  - ProjectNav: auto-selects newest run when expanding a collapsed project group
+  - Uses autoSelectedProjectsRef to track which projects have been auto-selected
+
+  **Part 4 — Selection state stability**
+  - userSelectedRef tracks explicit user clicks vs auto-selection
+  - handleSelectRun and handleNewRun set userSelectedRef.current = true
+  - didAutoSelectRef prevents auto-select from firing after initial load
+
+  **Part 5 — Dev-mode instrumentation**
+  - Dev console.log in handleSelectRun, handleNewRun, handleRunsUpdate (auto-select)
+  - Dev console.log in ProjectNav toggleCollapse (auto-select on expand)
+
+  **Part 6 — ProjectNav modal state lift**
+  - Modal state lifted to App.tsx (showNewRunModal)
+  - ProjectNav accepts showNewRunModal + onCloseNewRunModal props
+  - Local modal state merged with lifted state (sidebar button + empty-state CTA both work)
+  - Initial fetch on mount via useEffect calling refresh()
+
+Files created:
+- apps/web/src/components/ErrorBoundary.tsx
+- apps/web/src/components/EmptyState.tsx
+- apps/web/src/components/LoadingState.tsx
+
+Files modified:
+- apps/web/src/main.tsx (ErrorBoundary wrapper)
+- apps/web/src/App.tsx (auto-select refs, loading/empty states, modal state lift, dev logging)
+- apps/web/src/layout/DashboardLayout.tsx (EmptyState integration, hasRuns/onNewRun props)
+- apps/web/src/components/ProjectNav.tsx (lifted modal, initial fetch, auto-select on expand)
+- apps/web/src/components/JourneysTable.tsx (loading prop)
+- apps/web/src/index.css (CrashPanel, EmptyState, LoadingState, spinner animation)
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+  npm run dev
+  # App loads → auto-selects latest run (no blank screen)
+  # Expand collapsed project → auto-selects newest run from that project
+  # Empty state shows "No runs yet" with New Run CTA when no runs exist
+  # Error boundary catches crashes → CrashPanel with Reload/Copy
+  # Loading spinner shows while data is fetching
+
+## 2026-03-04T15:00:00Z
+Summary:
+- Excluded Tests UX Consistency — replaced modal with coverage sub-tab
+
+  Clicking the "Excluded Tests" card now activates an "Excluded" sub-tab inside the Coverage
+  details panel (matching the behavior of Pages, Actions, Suggested, Executed, Clicks) instead
+  of opening a modal overlay.
+
+  - CoverageDetails.tsx: added "excluded" to CoverageTab union, exported the type, added
+    ExcludedTab component (filter bar + table, logic moved from modal), added runId/projectSlug
+    props for data fetching
+  - CoveragePanel.tsx: Excluded card toggles activeTab="excluded" instead of opening modal.
+    Removed ExcludedCandidatesModal import/usage. Passes runId/projectSlug to CoverageDetails.
+  - Deleted ExcludedCandidatesModal.tsx (no remaining references)
+  - CSS: removed .excluded-modal* styles, simplified .excluded-filter-bar for inline use
+
+Files deleted:
+- apps/web/src/components/ExcludedCandidatesModal.tsx
+
+Files modified:
+- apps/web/src/components/CoverageDetails.tsx (ExcludedTab, CoverageTab export, runId/projectSlug)
+- apps/web/src/components/CoveragePanel.tsx (sub-tab toggle, removed modal)
+- apps/web/src/index.css (removed modal CSS, simplified filter bar)
+
+Verify:
+  npm run build --workspace=apps/web
+  npm run dev
+  # Click Excluded Tests card → Inspector shows Coverage > Excluded sub-tab (no modal)
+  # Filter chips work inline; matches behavior of other coverage cards
+
+## 2026-03-04T14:00:00Z
+Summary:
+- Coverage Funnel Tooltips + Excluded Candidates Viewer
+
+  **Part A — Runner produces journeys.excluded.json**
+  - Added ExcludedCandidate type + ExcludedCandidateReason enum to shared package (types.ts + schema.ts)
+  - Reasons: DESTRUCTIVE_LABEL, DISABLED, DUPLICATE_INTENT, LOW_CONFIDENCE_SELECTOR, TIMESTAMP_STATUS,
+    READ_ONLY_BLOCKED, CAP_LIMIT, OTHER
+  - Modified generateSpaCandidates() to collect excluded entries with structured reasons
+  - Modified generateCandidates() to collect SPA excluded + cap-limit excluded
+  - Added journeysExcludedPath to layout.ts
+  - run.ts writes journeys.excluded.json alongside candidates when excluded.length > 0
+  - discovery_md.ts adds "## Excluded Tests" section with total + reason breakdown table
+
+  **Part C — UI tooltip icons on coverage metrics**
+  - Created InfoTooltip component: small (i) icon with hover bubble (200px, positioned above)
+  - Each of 5 CoveragePanel cards now has a tooltip explaining what the metric means
+  - CSS: .info-tooltip-wrapper, .info-tooltip-icon, .info-tooltip-bubble
+
+  **Part D — Excluded Candidates card + modal**
+  - CoveragePanel: 6th "Excluded Tests" card (dashed border), shows (actionsDiscovered - suggestedTests)
+  - Click opens ExcludedCandidatesModal, which fetches journeys.excluded.json from static files
+  - Modal: filter bar by reason, sortable table with Label/Reason/Type/Score/Selector
+  - Reuses .modal-overlay, .filter-btn, .coverage-table CSS patterns
+  - CoveragePanel props expanded: now receives runId + projectSlug for fetching
+
+Files created:
+- apps/web/src/components/InfoTooltip.tsx (tooltip component)
+- apps/web/src/components/ExcludedCandidatesModal.tsx (excluded candidates modal)
+
+Files modified:
+- packages/shared/src/types.ts (ExcludedCandidateReason, ExcludedCandidate)
+- packages/shared/src/schema.ts (ExcludedCandidateReasonSchema, ExcludedCandidateSchema)
+- apps/runner/src/artifacts/layout.ts (journeysExcludedPath)
+- apps/runner/src/discovery/candidates.ts (excluded tracking in generateSpaCandidates + generateCandidates)
+- apps/runner/src/commands/run.ts (write journeys.excluded.json, console log excluded count)
+- apps/runner/src/reporting/discovery_md.ts (Excluded Tests section in markdown)
+- apps/web/src/types.ts (ExcludedCandidate, ExcludedCandidateReason)
+- apps/web/src/api.ts (fetchExcludedCandidates)
+- apps/web/src/components/CoveragePanel.tsx (tooltips, excluded card, modal integration)
+- apps/web/src/components/Inspector.tsx (pass runId/projectSlug to CoveragePanel)
+- apps/web/src/index.css (InfoTooltip, excluded card, excluded modal, grid override for 6th card)
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+  npm run dev
+  # Coverage tab: hover (i) icons on each card → tooltip text appears
+  # Excluded Tests card appears when actionsDiscovered > suggestedTests
+  # Click Excluded Tests → modal with reason filters and table
+  # discovery.md includes "## Excluded Tests" section
+
+## 2026-03-04T12:00:00Z
+Summary:
+- Run Selection + Artifacts UX + Coverage Padding — 3-part patch:
+
+  **Part 1 — Run Selection Fix (old runs now load data)**
+  - Root cause: registry.restore() set indexReady:false and never populated runIndex/stages/
+    repoMeta/issuesReady. SSE replay sent no ready flags → useRunData effects never triggered
+    → empty center/right panes when clicking older runs.
+  - Fix: client-side "terminal run" effect in useRunData.ts. When fetchRun() returns a
+    completed run (status !== "running"), immediately fetch all data without waiting for SSE:
+    - fetchRunIndex() from static files → merge into detail + derive stages
+    - fetchCoverage, fetchIssues, fetchRepoMeta, fetchOwnershipHints in parallel
+  - terminalLoadedRef (useRef) guards single-execution per run selection
+  - deriveStagesFromIndex() computes basic StageStats from RunIndex so StageTimeline renders
+  - RunHeaderBar: added project slug, start time, "Historical" badge for non-running runs
+  - JourneysTable: loading prop shows "Loading journeys..." instead of "No journeys" during fetch
+
+  **Part 2 — Artifacts Eye Icon + JSON Viewer Modal**
+  - JsonViewerModal: lightweight modal fetches URL, pretty-prints JSON, Copy/Open/Close buttons
+  - ArtifactsPanel: replaced low-contrast dark-blue <a> links with bordered "View JSON" buttons
+  - Discovery JSON files get View buttons; .md files keep direct links
+  - Clicking "View JSON" opens JsonViewerModal with formatted result.json
+
+  **Part 3 — Coverage Tab Padding / Layout Fix**
+  - Added 16px padding to .inspector-body (benefits all inspector tabs)
+  - Removed redundant padding from .artifacts-panel and .planner-panel (was doubling)
+  - Console negative margin (.inspector-body > .console { margin: -16px }) to fill full width
+  - Coverage cards: CSS grid 2×2 layout in inspector (was cramped 5-across flex)
+  - 5th card (Clicks) spans full width via grid-column: 1 / -1
+  - Spacing refinements for .coverage-explain and .coverage-tab-body
+
+Files created:
+- apps/web/src/components/JsonViewerModal.tsx (modal JSON viewer)
+
+Files modified:
+- apps/web/src/api.ts (fetchRunIndex function)
+- apps/web/src/hooks/useRunData.ts (terminalLoadedRef, terminal run effect, deriveStagesFromIndex)
+- apps/web/src/components/RunHeaderBar.tsx (project slug, start time, Historical badge)
+- apps/web/src/components/JourneysTable.tsx (loading prop)
+- apps/web/src/App.tsx (pass loading to JourneysTable)
+- apps/web/src/components/ArtifactsPanel.tsx (View JSON buttons, JsonViewerModal integration)
+- apps/web/src/index.css (inspector padding, coverage grid, JSON viewer modal, artifact buttons, console margin, RunHeaderBar slug/time)
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+  npm run dev
+  # Click older runs → center/right populate with RunHeader, StageTimeline, Journeys, Coverage
+  # Network tab: only GET requests (no POST /api/runs)
+  # Artifacts tab: "View JSON" buttons → modal with formatted JSON
+  # Coverage tab: 2-column card grid, comfortable spacing
+
+## 2026-03-04T10:00:00Z
+Summary:
+- UI Layout B: 3-Column Dashboard (ProjectNav / Results / Inspector)
+
+  Rearranged the 2-column layout (Sidebar 340px + MainPanel flex:1) into a 3-column
+  power-user layout using CSS grid: 320px / 1fr / 420px.
+
+  **Left Column — ProjectNav (320px)**
+  - "New Run" button opens modal overlay (NewRunModal wraps existing NewRunForm)
+  - Project groups + RunCards (extracted from Sidebar.tsx)
+
+  **Center Column — Results (flex:1)**
+  - RunHeaderBar: target URL, env badge, status pill, duration, CopyRunReport, Stop
+  - StageTimeline: compact horizontal strip (Smoke / Discovery / Journeys / Issues)
+  - MainTabs: Journeys | Issues tab bar with badge count
+  - JourneysTable: filterable table (ALL/PASS/WARN/FAIL), row click → Inspector Details
+  - IssuesTable: severity, title, count, ownership columns, row click → Inspector Details
+  - CompactCoverageStrip: inline metrics (Pages/Actions/Suggested/Executed/Clicks)
+
+  **Right Column — Inspector (420px)**
+  - 5-tab panel: Details, Console, Coverage, Artifacts, Planner
+  - Details tab: JourneyDetails (reused) or Issue detail view based on selection
+  - Console tab: RunConsole (reused)
+  - Coverage tab: CoveragePanel (reused)
+  - Artifacts tab: structured discovery + per-journey artifact tree
+  - Planner tab: planner.selection.json data (mode, selected, skipped candidates)
+
+  **State Model**
+  - Central useRunData hook extracts ALL data fetching from RunSummary into shared layer
+  - App.tsx manages: selectedRunId, selectedEntity, activeMainTab, activeInspectorTab
+  - Run change resets selection + tabs; new run auto-opens Console tab
+  - useSSE (unchanged) provides real-time SSE flags to useRunData
+
+Files created:
+- apps/web/src/hooks/useRunData.ts (central data hook)
+- apps/web/src/layout/DashboardLayout.tsx (3-column CSS grid shell)
+- apps/web/src/components/NewRunModal.tsx (modal wrapper for NewRunForm)
+- apps/web/src/components/ProjectNav.tsx (left column, from Sidebar)
+- apps/web/src/components/RunHeaderBar.tsx (center header)
+- apps/web/src/components/StageTimeline.tsx (compact stage strip)
+- apps/web/src/components/MainTabs.tsx (Journeys/Issues tab bar)
+- apps/web/src/components/JourneysTable.tsx (filterable journey table)
+- apps/web/src/components/IssuesTable.tsx (issues table)
+- apps/web/src/components/CompactCoverageStrip.tsx (inline coverage metrics)
+- apps/web/src/components/Inspector.tsx (5-tab inspector shell)
+- apps/web/src/components/InspectorDetails.tsx (journey/issue detail router)
+- apps/web/src/components/ArtifactsPanel.tsx (structured artifact tree)
+- apps/web/src/components/PlannerPanel.tsx (planner selection viewer)
+
+Files modified:
+- apps/web/src/types.ts (SelectedEntity, MainTab, InspectorTab, PlannerSelection types)
+- apps/web/src/api.ts (fetchPlannerSelection)
+- apps/web/src/App.tsx (rewritten: 3-column state model, useSSE + useRunData, DashboardLayout)
+- apps/web/src/index.css (dashboard-layout grid, modal, inspector, stage-timeline, filter-bar, coverage-strip, planner, artifacts, issues-table CSS)
+
+Components reused unchanged:
+- RunConsole.tsx → Inspector Console tab
+- CoveragePanel.tsx + CoverageDetails.tsx → Inspector Coverage tab
+- JourneyDetails.tsx → Inspector Details tab
+- RunCard.tsx → ProjectNav
+- NewRunForm.tsx → NewRunModal
+- CopyRunReport.tsx → RunHeaderBar
+- CopyBugReport.tsx → JourneyDetails
+- useSSE.ts → App.tsx
+
+Verify:
+  npm run build && npm run build --workspace=apps/web
+
+## 2026-03-04T08:00:00Z
+Summary:
+- Projects + Multi-Repo Inputs + Click Detection — 3-part patch:
+
+  **Part A — Fix Click Detection Bug**
+  - Root cause: coverage.ts cross-referenced spec.steps[i] with result.steps[i]
+    by array index, but safety-blocked SKIP steps and timeout steps shifted indices
+  - Fix: embed actionType, selector, label directly in StepResult at creation time
+  - Coverage now reads step.actionType === "click" from result.json without spec
+  - Removed specMap / executedRecords dependency from click extraction
+
+  **Part B — Projects Model**
+  - Group runs by site — project slug derived from target URL hostname+path
+  - Runs stored under data/runs/<projectSlug>/<runId>/ with run.json metadata
+  - Filesystem scan on startup restores completed runs into in-memory registry
+  - GET /api/projects → list projects, GET /api/projects/:slug/runs → runs by project
+  - File serving at /runs/:slug/:id/* with legacy /runs/:id/* backward compat
+
+  **Part C — UI & Multi-Repo**
+  - Sidebar shows collapsible project groups (▶/▼) with run count
+  - Dynamic multi-repo inputs: add/remove { url, role } entries with role dropdown
+  - Widened role types from "frontend"|"backend" to any string (frontend, backend, api, shared, other)
+  - ownership.ts uses flexible role matching: UI_ROLES=[frontend,shared], SERVER_ROLES=[backend,api]
+  - projectSlug threaded through all artifact URL construction (RunSummary, JourneyDetails,
+    CopyRunReport, CopyBugReport, RepoCards, api.ts helpers)
+
+Files created:
+- apps/server/src/projects.ts           # deriveProjectSlug(), scanProjects(), listProjects()
+
+Files modified:
+- packages/shared/src/types.ts          # actionType?, selector?, label? on StepResult
+- apps/runner/src/playwright/steps.ts   # ActionMeta interface, actionMeta in RunStepOptions
+- apps/runner/src/journeys/executor.ts  # buildActionMeta(), pass to runStep/runStepSoft
+- apps/runner/src/playwright/smoke.ts   # actionMeta for all 6 smoke steps
+- apps/server/src/triage/coverage.ts    # rewrite click extraction → step.actionType
+- apps/server/src/registry.ts           # projectSlug field, restore(), listByProject()
+- apps/server/src/spawn.ts              # outDir=projectSlug/runId, write/update run.json, array repos
+- apps/server/src/index.ts              # scanProjects startup, /api/projects endpoints
+- apps/server/src/routes/runs.ts        # projectSlug in responses, array repos input
+- apps/server/src/routes/files.ts       # /:slug/:id/* route + serveArtifact helper
+- apps/server/src/github/types.ts       # widened role types to string
+- apps/server/src/github/client.ts      # parseRepoUrl role param → string
+- apps/server/src/github/ownership.ts   # flexible UI/server role matching
+- apps/web/src/types.ts                 # Project type, projectSlug on RunSummary, widened roles
+- apps/web/src/api.ts                   # fetchProjects(), fetchProjectRuns(), projectSlug param on all artifact helpers
+- apps/web/src/App.tsx                  # pass projectSlug to MainPanel
+- apps/web/src/components/Sidebar.tsx   # collapsible project groups
+- apps/web/src/components/NewRunForm.tsx # dynamic multi-repo list
+- apps/web/src/components/MainPanel.tsx  # projectSlug prop → RunSummary
+- apps/web/src/components/RunSummary.tsx # projectSlug threaded to all children
+- apps/web/src/components/JourneyDetails.tsx   # projectSlug for fetch + artifactUrl
+- apps/web/src/components/CopyRunReport.tsx    # projectSlug for fetch + artifactUrl
+- apps/web/src/components/CopyBugReport.tsx    # projectSlug prop
+- apps/web/src/components/RepoCards.tsx        # projectSlug for fetchRepoMeta
+- apps/web/src/index.css                # project-group, repo-entry, role badge CSS
+
+Verify:
+  npm run build
+  npm run build --workspace=apps/web
+  # Start server, check GET /api/projects
+  # Verify sidebar shows project groups
+  # Verify dynamic repo inputs in new run form
+  # Run a test — check coverage clicksPerformed > 0
+
+## 2026-03-04T06:00:00Z
+Summary:
+- Coverage & Tested Actions UX Patch — server-side coverage aggregation endpoint
+  + web UI panel answering "what did Tensile actually test?"
+  - GET /api/runs/:runId/coverage — compute-on-request endpoint reads existing
+    artifacts from outDir, returns CoverageResponse JSON blob
+  - CoverageResponse shape: counts (pages/actions/suggested/executed/clicks),
+    pagesVisited, actionsByType, suggestedTests, executedTests, clicksPerformed,
+    coverageByPage, explain strings
+  - Reads discovery artifacts: site.map.json → pagesVisited, page.actions.json →
+    actionsByType totals, journeys.candidates.json → suggestedTests
+  - Cross-references ExecutedJourneyRecord.spec.steps[i] (action type + selector)
+    with result.json.steps[i] (status) to extract click actions performed
+  - Clicks capped at 200 entries to prevent oversized responses
+  - Coverage by page: groups clicks by page URL, lists journeys that touched each page
+  - CoveragePanel: 5 summary cards (Pages/Actions/Suggested/Executed/Clicks)
+    reusing .stage-cards layout, clickable to open drilldown tab
+  - CoverageDetails: tabbed drilldown with Pages table, Actions by type, Suggested
+    tests table, Executed tests with status badges, Clicks with journey/label/selector/status
+  - Each tab caps at 50 rows with "show more" link
+  - CopyRunReport: Coverage section added after Stages with counts + action type
+    breakdown + top 10 click labels
+  - No SSE events needed — coverage is computed on-demand from already-written artifacts
+
+Files created:
+- apps/server/src/triage/coverage.ts       # computeCoverage(outDir, runId)
+- apps/web/src/components/CoveragePanel.tsx # Summary cards row
+- apps/web/src/components/CoverageDetails.tsx # Tabbed drilldown (Pages/Actions/Suggested/Executed/Clicks)
+
+Files modified:
+- apps/server/src/routes/runs.ts            # GET /:id/coverage route
+- apps/web/src/types.ts                     # CoverageResponse interface
+- apps/web/src/api.ts                       # fetchCoverage(runId)
+- apps/web/src/components/RunSummary.tsx     # fetch + render CoveragePanel after StageCards
+- apps/web/src/components/CopyRunReport.tsx  # Coverage section in markdown report
+- apps/web/src/index.css                    # coverage panel/card/tab/table styles
+
+Verify:
+  npm run build --workspace=packages/shared
+  npm run build --workspace=apps/runner
+  npm run build --workspace=apps/server
+  npm run build --workspace=apps/web
+
+## 2026-03-04T04:00:00Z
+Summary:
+- Module 7: Failure Clustering + Dedupe (Triage) — cluster failures/warnings into
+  deduplicated "Issues" with severity, occurrence counts, and evidence links
+  - Server-side triage pipeline: extract occurrences → normalize signatures → cluster
+    by normalized signature → cross-reference ownership hints → write issues.json
+  - 4-level severity model:
+    - S0: FAIL + count >= 2 (critical repeated), S1: FAIL + count == 1 (single failure)
+    - S2: SOFT_FAIL + count >= 2 (repeated warning), S3: SOFT_FAIL + count == 1 (single warning)
+  - Deterministic issue IDs from SHA-256 of normalized signature (first 12 hex chars)
+  - Signature normalization: collapse UUIDs → :uuid, numeric path IDs → /:id,
+    port numbers → :port, millisecond timings → Nms, strip stack traces, lowercase
+  - Restructured spawn.ts post-run processing: ownership + triage in single async block,
+    SSE close deferred to .finally() so both ownershipReady and issuesReady events
+    are reliably delivered before connections close
+  - Full SSE pipeline: issuesReady state in registry, SSE broadcast, SSE replay for
+    finished runs, useSSE hook tracks issuesReady
+  - Web UI: collapsible Issues panel between warnings panel and repo cards, with
+    severity badges (S0 red, S1 orange, S2 yellow, S3 muted), issue cards showing
+    title + occurrence count + expandable occurrence table with journey/step/error
+  - CopyRunReport: Issues Summary section added after Warnings Summary, listing each
+    issue with severity, occurrences, and ownership hints
+  - issues.json written to outDir root (same level as run.index.json)
+
+Files changed:
+- apps/server/src/triage/types.ts (NEW — Occurrence, Issue, IssuesFile types)
+- apps/server/src/triage/extract.ts (NEW — extractOccurrences: read journey results, collect FAIL/SOFT_FAIL steps)
+- apps/server/src/triage/normalize.ts (NEW — normalizeSignature: collapse dynamic URL/error segments)
+- apps/server/src/triage/cluster.ts (NEW — clusterOccurrences: group by signature, compute severity, sort)
+- apps/server/src/triage/issues.ts (NEW — computeIssues: main entry, orchestrates pipeline, writes issues.json)
+- apps/server/src/spawn.ts (restructured post-run: ownership + triage in async block, SSE close in .finally())
+- apps/server/src/registry.ts (issuesReady field on RunRecord, setIssuesReady method)
+- apps/server/src/routes/runs.ts (issuesReady in GET /:id response + SSE replay)
+- apps/web/src/types.ts (Occurrence, Issue, IssuesFile types + issuesReady SSE event)
+- apps/web/src/api.ts (fetchIssues function)
+- apps/web/src/hooks/useSSE.ts (issuesReady state + case + return)
+- apps/web/src/components/MainPanel.tsx (pass issuesReady to RunSummary)
+- apps/web/src/components/RunSummary.tsx (accept issuesReady, fetch issues, render IssuesList)
+- apps/web/src/components/IssuesList.tsx (NEW — collapsible Issues section with severity badges)
+- apps/web/src/components/CopyRunReport.tsx (Issues Summary section in generated report)
+- apps/web/src/index.css (severity badges .badge-S0..S3, issues panel + issue card styles)
+
+Verify:
+- npm run build
+- npm run build --workspace=apps/web
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_triage --smoke true --discover true --journeys topN:5 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Check issues.json: cat ./data/runs/cyberchef_triage/issues.json | head -n 40
+  # Expected: issues array with clustered entries, severity levels, occurrence counts
+- cd apps/server && npm start
+  # Verify: Issues section appears in UI after run completes, severity badges render,
+  # issues expandable, Copy Report includes Issues Summary
+  # Verify SSE: stagesReady → ownershipReady → issuesReady
+
+## 2026-03-04T03:00:00Z
+Summary:
+- Rendered Content Warning Heuristic Patch — reduce false WARN on SPAs/canvas apps
+  - Root cause: assertRenderedContent() used a single check (documentElement rect > 100x100).
+    CyberChef and similar canvas-heavy/SPA apps frequently failed this check in headless mode,
+    producing noisy "Document has no viewport-sized layout yet" warnings on every journey.
+  - Replaced single-check logic with 3-signal heuristic — PASS if ANY signal is true:
+    A) Viewport layout size: rect.width >= 200 AND rect.height >= 200
+    B) Visible element signal: scan up to 1500 elements, count visible ones (display/visibility/
+       opacity/size checks), PASS if visibleCount >= 1
+    C) DOM density signal: PASS if body has >= 20 descendant elements (tolerant for canvas-heavy)
+  - WARN (soft-fail) only when ALL 3 signals fail — true empty/broken pages still warned
+  - Stabilization delay: waitForLoadState("load", 10s timeout) + 600ms render delay
+    before evaluating signals (up from bare 500ms waitForTimeout)
+  - Warning message improved: "Rendered content check inconclusive (rect=WxH, elements=E, visible=V)"
+    with evidence values — no longer implies bot-check/consent/interstitial
+  - Eliminated code duplication: smoke.ts Step 5 now calls shared assertRenderedContent()
+    from assertions.ts instead of inlining identical logic
+  - Executor assert case already called assertRenderedContent() — no changes needed
+  - Consistent across smoke and journey execution paths
+  - All evaluate() calls use function form (Trusted Types safe)
+
+Files changed:
+- apps/runner/src/journeys/assertions.ts (3-signal heuristic, stabilization delay, evidence message)
+- apps/runner/src/playwright/smoke.ts (import assertRenderedContent, remove inline duplicate)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_rendercheck --smoke true --discover true --journeys topN:3 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Expected: smoke and journeys PASS with 0 warnings (or fewer than before)
+  # If any warnings: message is "Rendered content check inconclusive (rect=..., elements=..., visible=...)"
+- node apps/runner/dist/index.js run --url https://youtube.com --out ./data/runs/youtube_rendercheck --smoke true --headless true --network-events true
+  # Expected: no Trusted Types error, heuristic-based rendered content check
+
+## 2026-03-04T02:00:00Z
+Summary:
+- Score-based TopN Selection + Timestamp/Status Hard Cap
+  - Root cause: Module 4's planner.ts sorted candidates only by priority (P0>P1>P2),
+    ignoring the numeric score computed in candidates.ts. Timestamp/status labels with
+    high-quality selectors could still score above threshold and get selected.
+  - Added score field to CandidateJourney type + schema (optional, backward compatible)
+  - candidates.ts: Set score on ALL candidate types:
+    - Nav link candidates: scoreNonSpaCandidate() — starts at 50, +10 href, +10 testid/id,
+      +10 label length 4-28, same timestamp/status penalties as SPA scoring
+    - Search candidates: fixed score=60
+    - Login candidates: fixed score=55
+    - Form candidates: fixed score=30
+    - SPA candidates: score from scoreSpaCandidate() (already computed, now set on field)
+  - planner.ts: Rewrote selectCandidates() for topN mode:
+    - computeAdjustedScore(): applies hard caps — timestamp/status → max 40, footer/legal → max 35
+    - extractLabel(): pulls quoted label from candidate name for pattern matching
+    - Sort key: adjustedScore desc → priority asc → raw score desc
+    - Split preferred (adjustedScore >= 50) vs fallback (< 50), fill from preferred first
+    - PlannerSelection diagnostics: mode, param, totalCandidates, selected/skipped with scores
+  - layout.ts: Added plannerSelectionPath() for planner.selection.json
+  - orchestrator.ts: Writes planner.selection.json after planning phase
+  - PlanResult type extended with selection: PlannerSelection field
+
+Files changed:
+- packages/shared/src/types.ts (score?: number on CandidateJourney)
+- packages/shared/src/schema.ts (score: z.number().optional() on CandidateJourneySchema)
+- apps/runner/src/discovery/candidates.ts (scoreNonSpaCandidate, score field on all candidates)
+- apps/runner/src/journeys/types.ts (PlannerSelection interface, PlanResult.selection)
+- apps/runner/src/journeys/planner.ts (computeAdjustedScore, score-driven topN, hard caps)
+- apps/runner/src/artifacts/layout.ts (plannerSelectionPath)
+- apps/runner/src/journeys/orchestrator.ts (write planner.selection.json)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_topn --smoke true --discover true --journeys topN:3 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Expected: top 3 selected candidates are NOT timestamp/status labels
+- cat ./data/runs/cyberchef_topn/artifacts/discovery/planner.selection.json | head -n 40
+  # Expected: selected candidates have adjustedScore >= 50, timestamp ones capped at 40
+- cat ./data/runs/cyberchef_topn/artifacts/discovery/journeys.candidates.json | python3 -c "import json,sys; [print(f'{c[\"name\"]:50s} score={c.get(\"score\",\"?\")}') for c in json.load(sys.stdin)]"
+  # Expected: all candidates have score field set
+
+## 2026-03-04T01:00:00Z
+Summary:
+- Improve Candidate Ranking — avoid timestamp/status labels, pick better SPA click targets
+  - New scoreSpaCandidate() function with 0-130+ point scale:
+    Bonuses: +20 aria-label selector, +18 data-testid, +12 id selector, +10 href present,
+      +10 label length 4-28 chars, +8 title case, +5 visible, +4 primary UI (button/a/tab)
+    Penalties: -30 timestamp/status/version, -18 relative time/temporal/time pattern/date/numeric,
+      -16 footer/legal, -12 menu/toggle, -10 social/share, -10 long label, -8 short label
+    Hard exclusions: empty label without aria-label/testid/id
+  - Regex patterns: TIMESTAMP_STATUS_RE, RELATIVE_TIME_RE, TEMPORAL_RE, TIME_PATTERN_RE,
+      DATE_ISO_RE, DATE_SLASH_RE, FOOTER_LEGAL_RE, SOCIAL_SHARE_RE (all case-insensitive)
+  - NAVIGATE targets with gotoable href now use goto step instead of click:
+    - Skips "#", "javascript:", empty hrefs; falls back to click
+    - Reduces no-op click warnings for anchor-routed SPAs
+  - Added href to ActionTargetElement type + schema + extract.ts pipeline
+  - Diagnostics: ScoredCandidate { action, score, flags } tracked per candidate
+    - discovery.md "Top SPA Candidates" table: label, type, score, selector, penalty flags
+    - spaEligible now tracks excludedEmpty count
+  - Candidate notes now include score and top 3 flags for debugging
+  - P0 threshold adjusted to score >= 85 (from confidence-based 0.85)
+
+Files changed:
+- packages/shared/src/types.ts (href?: string on ActionTargetElement)
+- packages/shared/src/schema.ts (href: z.string().optional() in element)
+- apps/runner/src/discovery/extract.ts (pass raw.href to ActionTarget)
+- apps/runner/src/discovery/candidates.ts (scoreSpaCandidate, shouldExclude, isGotoableHref,
+    ScoredCandidate type, goto optimization, updated diagnostics)
+- apps/runner/src/reporting/discovery_md.ts (Top SPA Candidates table, excludedEmpty)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_rank --smoke true --discover true --journeys topN:3 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Expected: Top candidates are Options/Operations/Settings, not "Last build: A day ago"
+- cat ./data/runs/cyberchef_rank/artifacts/discovery/discovery.md | sed -n '1,220p'
+  # Expected: Top SPA Candidates table with scores, timestamp labels penalized
+- cat ./data/runs/cyberchef_rank/artifacts/discovery/journeys.candidates.json | head -n 80
+  # Expected: top candidates have meaningful labels, score notes in candidate.notes
+
+## 2026-03-04T00:00:00Z
+Summary:
+- Warnings UX Patch — make WARN/SOFT_FAIL actionable and visible
+  - RunSummary.tsx: Added PASS/WARN/FAIL badge counts row at top of summary.
+    Fetches all JourneyResult files to detect warnings. Expandable warnings panel
+    shows per-journey warnings with exact messages (auto-expanded when warnings exist,
+    collapsed otherwise). Journey table now has "Notes" column showing warning count.
+    Journey status shows "WARN" badge when journey is PASS with SOFT_FAIL steps.
+  - JourneyDetails.tsx: Warnings section moved ABOVE steps table with deduplicated
+    messages from both result.warnings[] and SOFT_FAIL steps. Step name shown for
+    step-derived warnings. SOFT_FAIL step rows highlighted with left amber border
+    and amber-colored error message. Journey header badge shows WARN when applicable.
+  - CopyRunReport.tsx: Added "Warnings Summary" section to markdown output with
+    warned journey count, total warnings, and per-journey warning lists. Shows
+    "No warnings." when clean. Now accepts preloaded journeyResults map from
+    RunSummary to avoid redundant fetches. Journey table uses WARN display status.
+  - CSS: Added --warn color variable (#f59e0b amber). Fixed .badge-SOFT_FAIL to use
+    --warn instead of --running (was blue, now amber). Added .badge-WARN, status counts
+    row, warnings panel (collapsible with amber left border), step-row-warn highlight,
+    step-warn-message styling, journey-warn-note for table cells.
+  - Warning derivation: standardized across all components — primary source is
+    JourneyResult.warnings[], secondary is SOFT_FAIL steps with deduplication.
+  - No runner/server changes — UI computes warnings client-side from existing data.
+
+Files changed:
+- apps/web/src/components/RunSummary.tsx (badge counts, warnings panel, WARN status)
+- apps/web/src/components/JourneyDetails.tsx (warnings above steps, SOFT_FAIL highlighting)
+- apps/web/src/components/CopyRunReport.tsx (Warnings Summary section, preloaded results)
+- apps/web/src/index.css (--warn variable, warning styles)
+
+Verify:
+- npm run build
+- npx vite build apps/web
+- npm run dev  # then run CyberChef and check warnings visible in UI
+- Click "Copy Report" and verify Warnings Summary section in markdown output
+- Run example.com — verify no warnings panel shown, "No warnings." in Copy Report
+
+## 2026-03-03T23:30:00Z
+Summary:
+- Actions Map Key Canonicalization (fix actionsOnRoot=0)
+  - Root cause: candidates.ts compared raw startUrl ("https://…/CyberChef/") against
+    normalized ActionTarget.pageUrl ("https://…/CyberChef" — no trailing slash).
+    normalizeUrl() in crawler.ts strips trailing slashes on non-root paths, but
+    candidates.ts received the raw user-provided URL from config.url, causing
+    homeActions filter to match 0 actions despite 50+ being present.
+  - Fix 1: Import normalizeUrl in candidates.ts — canonicalize startUrl at entry:
+    `const canonicalRoot = normalizeUrl(startUrl, false) || startUrl;`
+  - Fix 2: Added tolerant `getActionsForPage()` helper as belt-and-suspenders —
+    tries exact match first, then opposite trailing-slash variant
+  - Fix 3: Added `rootUrlUsed` and `actionsMapKeys` (first 3 keys) to CandidateDiagnostics
+    so URL mismatches are obvious in one glance in discovery.md
+  - discovery_md.ts: prints rootUrlUsed and actionsMapKeysSample in diagnostics
+
+Files changed:
+- apps/runner/src/discovery/candidates.ts (normalizeUrl import, canonicalRoot, getActionsForPage helper, diagnostics fields)
+- apps/runner/src/reporting/discovery_md.ts (rootUrlUsed + actionsMapKeysSample in diagnostics)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_keys_fix --smoke true --discover true --journeys topN:3 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Expected: actionsOnRoot > 0, finalSpaCandidates >= 3, journeys executed >= 1
+- cat ./data/runs/cyberchef_keys_fix/artifacts/discovery/discovery.md | sed -n '1,120p'
+  # Expected: rootUrlUsed matches actionsMapKeysSample[0]
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/example_keys_fix --discover true --journeys topN:3 --headless true
+  # Expected: no regression
+
+## 2026-03-03T23:00:00Z
+Summary:
+- SPA Candidates Fix + Diagnostics (follow-up to SPA Candidate Generation Patch)
+  - Root cause of 0 candidates on CyberChef:
+    1. SPA trigger condition too strict: pages.length<=3 && navCandidateCount<3 could fail
+       if CyberChef had visible <a> tags producing navLinks, or search/login bumped journeys>0
+    2. isVisible filter in generateSpaCandidates() excluded all CyberChef elements —
+       SPAs may report elements as not visible during crawl-time extraction
+  - Fix 1: SPA trigger now: pagesVisited <= 1 OR (pagesVisited <= 2 AND navLinkCandidates == 0)
+    - Does NOT require linksFound==0 or actionsFound==0 — only checks page count + nav candidates
+  - Fix 2: Removed isVisible requirement from SPA filter — only excludes disabled + destructive
+    - Added +0.05 visibility bonus in scoring instead (visible elements ranked higher, not required)
+  - generateCandidates() now returns { candidates, diagnostics } instead of bare CandidateJourney[]
+  - CandidateDiagnostics tracks: pagesVisited, linksFound, actionsTotal, actionsOnRoot,
+    navLinkCandidates, spaModeTriggered, spaTriggerReason, spaEligible funnel
+    (totalOnRoot, typeEligible, excludedDestructive, excludedDisabled, excludedDuplicate,
+    finalSpaCandidates), topCandidateLabels
+  - Discovery markdown: new "Candidate Generation Diagnostics" section with full funnel breakdown
+    - Shows SPA Eligibility Funnel when SPA mode triggered
+    - Shows top candidate labels for quick verification
+  - Updated run.ts call site to destructure { candidates, diagnostics } and pass to markdown
+
+Files changed:
+- apps/runner/src/discovery/candidates.ts (trigger fix, visibility fix, diagnostics return)
+- apps/runner/src/reporting/discovery_md.ts (diagnostics section, import CandidateDiagnostics)
+- apps/runner/src/commands/run.ts (destructure return value, pass diagnostics to markdown)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://gchq.github.io/CyberChef/ --out ./data/runs/cyberchef_spa --smoke true --discover true --journeys topN:3 --headless true --network-events true --max-pages 10 --max-depth 2
+  # Expected: candidates >= 3, journeys >= 1, discovery.md shows SPA diagnostics
+- cat ./data/runs/cyberchef_spa/artifacts/discovery/journeys.candidates.json | head -n 60
+- cat ./data/runs/cyberchef_spa/artifacts/discovery/discovery.md
+  # Expected: SPA Detection + Candidate Generation Diagnostics sections populated
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/example_reg --discover true --journeys topN:3 --headless true
+  # Expected: existing nav candidates still generated, diagnostics show spaModeTriggered=false
+
+## 2026-03-03T22:30:00Z
+Summary:
+- SPA Candidate Generation Patch (initial — superseded by fix above)
+  - Added SPA fallback + overall cap + discovery markdown SPA section
+  - Known issue: trigger too strict and isVisible filter excluded all CyberChef elements
+
+## 2026-03-03T22:00:00Z
+Summary:
+- MVP UI Consistency Patch
+  - Server: Added StageStats type to RunRecord — tracks smoke/discovery/journeys stage outcomes
+  - Server: computeStages() reads run.index.json + discovery artifacts after run completes
+    - Smoke: detected by journeyId === "smoke", reports pass/fail + duration
+    - Discovery: reads site.map.json, page.actions.json, journeys.candidates.json for counts
+    - Journeys: counts non-smoke journeys by status, reads result.json for warned count
+  - Server: Journeys normalization — if discover=true and no journeys value, defaults to "topN:3";
+    "none" value prevents --journeys flag from being passed to runner
+  - Server: New SSE event "stagesReady", replayed for finished runs
+  - Server: stages exposed in GET /api/runs/:id and GET /api/runs list
+  - UI: StageCards component — 3 horizontal cards (Smoke/Discovery/Journeys) with status badges
+    and counters, only shown when relevant stage is enabled
+  - UI: RunSummary reworked — smoke journey separated into own section, non-smoke journeys
+    in "Journeys" section, explanatory message when no discovered journeys executed
+  - UI: CopyRunReport component — always-available "Copy Report" button generates comprehensive
+    Markdown report with metadata, stages, repos, discovery stats, journeys table, failure details
+    with artifact links, ownership hints, and footer with trace viewing hint
+  - UI: NewRunForm — "Will run" preview line shows stages that will execute, journeys "none"
+    no longer sends journeys option to server
+  - CSS: stage-card, stage-card-stats, form-preview styles
+
+Files changed:
+- apps/server/src/registry.ts (StageStats type, stages field, setStages method)
+- apps/server/src/spawn.ts (computeStages function, journeys normalization, stagesReady broadcast)
+- apps/server/src/routes/runs.ts (stages in GET response, stagesReady SSE replay)
+- apps/web/src/types.ts (StageStats type, stagesReady SSEEvent)
+- apps/web/src/hooks/useSSE.ts (stagesReady handler)
+- apps/web/src/components/StageCards.tsx (new — stage status cards)
+- apps/web/src/components/CopyRunReport.tsx (new — full run report markdown generator)
+- apps/web/src/components/RunSummary.tsx (reworked — stage cards, smoke separation, CopyRunReport)
+- apps/web/src/components/MainPanel.tsx (pass stagesReady prop)
+- apps/web/src/components/NewRunForm.tsx (Will run preview, journeys none handling)
+- apps/web/src/index.css (stage card + form preview styles)
+
+Verify:
+- npm run build && npm run build:web
+- npm run dev
+- Start a run with Smoke + Discover + Top 3 against any URL
+  - Verify: StageCards show Smoke/Discovery/Journeys with correct status badges
+  - Verify: Smoke journey separated from discovered journeys in table
+  - Verify: Counters match actual journey results
+- Click "Copy Report" button — paste into editor, verify comprehensive Markdown
+- Start smoke-only run — verify no Discovery/Journeys cards shown
+- Check "Will run" preview in NewRunForm matches selected options
+
+## 2026-03-03T21:00:00Z
+Summary:
+- Implemented Module 6: Public GitHub Repo Integration
+  - Optional public GitHub repo URLs (frontend/backend) can be linked to each run
+  - Server-side GitHub REST API client using native fetch (no new deps, no auth required)
+  - Rate limit tracking: module-level state shared across requests (60 req/hr unauthenticated)
+  - Stack detection: heuristic framework/runtime/language detection from repo tree + package.json deps
+  - Key file identification: package manifests, OpenAPI specs, route definitions, Dockerfiles
+  - Enrichment pipeline: fire-and-forget async (non-blocking, never delays runner spawn)
+    - Per-repo try/catch: RateLimitError stops remaining, RepoNotFoundError skips, others skip
+    - Writes <outDir>/repo.meta.json
+  - Post-run ownership hints: correlates failed journey results with repo metadata
+    - 5 attribution rules: selector/nav errors → frontend, failed API requests → backend,
+      timeout + failed network → backend, page URL matches frontend routes → frontend, fallback → unknown
+    - Reads network events from journey artifacts
+    - Writes <outDir>/ownership.hints.json
+  - Server integration: registry stores repos + repoMeta, spawn fires enrichment + ownership,
+    SSE broadcasts repoMetaReady, routes pass repos in/out
+  - Web UI: "Link GitHub repos" checkbox in NewRunForm with frontend/backend URL inputs,
+    RepoCards component (role badge, owner/repo link, SHA short, description, stack tags),
+    ownership hints in JourneyDetails (badge, confidence, reason, failed URL, related files),
+    CopyBugReport extended with linked repositories + ownership analysis sections
+  - CSS: repo-card, ownership-hint, ownership-badge, confidence level styles
+
+Files changed:
+- apps/server/src/github/types.ts (new — all GitHub module types)
+- apps/server/src/github/client.ts (new — GitHub REST API client with rate limiting)
+- apps/server/src/github/detect.ts (new — stack detection + key file identification)
+- apps/server/src/github/enrich.ts (new — enrichment orchestrator)
+- apps/server/src/github/ownership.ts (new — post-run ownership hint computation)
+- apps/server/src/registry.ts (repos + repoMeta fields, setRepoMeta method)
+- apps/server/src/spawn.ts (repo parsing, async enrichment, ownership on close)
+- apps/server/src/routes/runs.ts (repos in POST body, repos+repoMeta in GET, SSE replay)
+- apps/web/src/types.ts (DetectedStack, KeyFile, RepoMeta, RepoMetaFile, OwnershipHint, SSEEvent extensions)
+- apps/web/src/api.ts (extend createRun, fetchRepoMeta, fetchOwnershipHints)
+- apps/web/src/hooks/useSSE.ts (repoMetaReady state)
+- apps/web/src/components/NewRunForm.tsx (repo URL inputs behind checkbox)
+- apps/web/src/components/RepoCards.tsx (new — repo metadata display cards)
+- apps/web/src/components/RunSummary.tsx (render RepoCards above journey table)
+- apps/web/src/components/MainPanel.tsx (pass repoMetaReady to RunSummary)
+- apps/web/src/components/JourneyDetails.tsx (ownership hints display for FAIL journeys)
+- apps/web/src/components/CopyBugReport.tsx (repos + ownership in markdown bug report)
+- apps/web/src/index.css (repo card + ownership hint styles)
+
+Verify:
+- npm run build && npm run build:web
+- npm run dev  # starts server + web
+- # Run with public repos:
+  curl -X POST http://localhost:3001/api/runs \
+    -H "Content-Type: application/json" \
+    -d '{"url":"https://example.com","repos":{"frontend":"https://github.com/vercel/next.js"},"options":{"smoke":true,"headless":true}}'
+  # Expected: 201, run starts, repo.meta.json written after enrichment
+- # Run without repos (no regression):
+  curl -X POST http://localhost:3001/api/runs \
+    -H "Content-Type: application/json" \
+    -d '{"url":"https://example.com","options":{"smoke":true,"headless":true}}'
+  # Expected: works as before, no repo.meta.json
+
+## 2026-03-03T20:00:00Z
+Summary:
+- Web Dashboard Robustness Fixes (Module 5 audit)
+  - Process tree kill: spawn with { detached: true }, kill via process.kill(-pid) to
+    terminate entire process group (Chromium + Playwright subprocesses), not just node child
+  - Exported killProcessTree() from spawn.ts, used in stop route
+  - Stop handler race condition fixed: close handler checks if status is already "stopped"
+    before overwriting; stopped runs record exit code without changing status
+  - Added setExitCode() to registry for stopped-run exit code tracking
+  - fs.watch/polling for run.index.json: added 2-second interval poll during run,
+    detects index file while process is still running (not just after close)
+  - Ring buffer size corrected from 2000 to 500 lines (per spec)
+  - Added root scripts: "npm run dev" (concurrently server + web), "npm run start"
+  - Installed concurrently as devDependency
+
+Files changed:
+- apps/server/src/spawn.ts (detached spawn, killProcessTree, index polling, race fix)
+- apps/server/src/routes/runs.ts (use killProcessTree in stop handler)
+- apps/server/src/registry.ts (MAX_LOG_LINES 500, setExitCode method)
+- package.json (dev, start scripts, concurrently dep)
+
+Verify:
+- npm run build
+- node apps/server/dist/index.js  # server starts on :3001
+  curl -s http://localhost:3001/api/runs  # []
+- npm run dev  # runs server + web concurrently
+
+## 2026-03-03T19:30:00Z
+Summary:
+- Replace Body Visible Assertions in Journey Executor
+  - Root cause: journey executor "assert" step dispatched to assertPageHealthy() → assertBodyVisible()
+    which used body.isVisible() — the same brittle check already fixed in smoke journey
+  - Removed assertBodyVisible() entirely from assertions.ts
+  - Added assertBodyAttached(): hard fail if no <body> in DOM (waitForSelector state:attached)
+  - Added assertRenderedContent(): soft fail for viewport layout check (SoftAssertionError)
+  - Added assertElementVisible(): soft fail for specific element visibility by selector
+  - Updated assertPageHealthy() to use assertBodyAttached() instead of assertBodyVisible()
+  - executor.ts assert case: now uses runStepSoft — hard checks (body attached + error title)
+    followed by selector-aware soft check (element visible) or generic content check
+  - candidates.ts: P2 form journeys now pass formAction.selector to assert step target,
+    enabling selector-aware form visibility checking in executor
+  - All evaluate() calls use function form (Trusted Types safe)
+  - SOFT_FAIL flow: page loads but form/content not confirmed → SOFT_FAIL (journey continues)
+  - FAIL flow: body not attached or error title → FAIL (journey stops)
+
+Files changed:
+- apps/runner/src/journeys/assertions.ts (replace assertBodyVisible, add new assertion functions)
+- apps/runner/src/journeys/executor.ts (assert case: runStepSoft + selector-aware dispatch)
+- apps/runner/src/discovery/candidates.ts (pass form selector to assert steps)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/exec_test --smoke true --discover true --journeys critical --headless true
+  # Expected: smoke PASS, journeys PASS (assert steps use robust checks)
+- cat ./data/runs/exec_test/artifacts/journeys/*/result.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status'], d.get('warnings',[]))"
+
+## 2026-03-03T18:30:00Z
+Summary:
+- Smoke Journey Robustness Patch: SOFT_FAIL + Trusted Types
+  - Fixed YouTube smoke failure ("No visible <body> element found")
+  - Added SOFT_FAIL step status: non-critical failures that don't abort the journey
+  - Replaced "assert-body-visible" (body.isVisible — unreliable on SPAs) with:
+    - "assert-body-attached" — hard fail if no <body> element at all (page.waitForSelector)
+    - "assert-rendered-content" — soft fail if viewport has no layout yet (documentElement.getBoundingClientRect)
+  - SoftAssertionError class + runStepSoft() helper: catches soft errors as SOFT_FAIL
+  - SOFT_FAIL continues execution (no break), journey stays PASS, warnings[] collected
+  - SOFT_FAIL does NOT cause non-zero exit code
+  - screenshot_soft_fail.png captured on SOFT_FAIL (distinct from screenshot_fail.png)
+  - CLI output: [WARN] icon for SOFT_FAIL steps, "Warnings:" section printed
+  - All page.evaluate() calls use function form (Trusted Types safe, no string eval)
+  - Web dashboard updated: SOFT_FAIL badge (orange), warnings section in JourneyDetails
+  - Smoke journey now has 6 steps (was 5): goto, wait-ready-state, capture-title,
+    assert-body-attached, assert-rendered-content, check-http-status
+
+Files changed:
+- packages/shared/src/types.ts (StepStatus + JourneyResult.warnings)
+- packages/shared/src/schema.ts (Zod enums + warnings field)
+- apps/runner/src/playwright/steps.ts (SoftAssertionError + runStepSoft)
+- apps/runner/src/playwright/smoke.ts (replace assert-body-visible → 2 new steps)
+- apps/runner/src/artifacts/layout.ts (screenshotSoftFailPath)
+- apps/runner/src/journeys/executor.ts (SOFT_FAIL passthrough + warnings)
+- apps/runner/src/journeys/orchestrator.ts (WARN step icon)
+- apps/runner/src/commands/run.ts (CLI output + warned count)
+- apps/web/src/types.ts (frontend SOFT_FAIL type)
+- apps/web/src/components/JourneyDetails.tsx (SOFT_FAIL badge + warnings)
+- apps/web/src/index.css (.badge-SOFT_FAIL style)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://youtube.com --out ./data/runs/yt_smoke --smoke true --headless true --network-events true
+  # Expected: PASS with [WARN] on assert-rendered-content, screenshot_soft_fail.png
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/example_smoke --smoke true --headless true
+  # Expected: all 6 steps OK, no warnings
+- cat ./data/runs/yt_smoke/artifacts/journeys/smoke/result.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['status'], d.get('warnings',[]))"
+  # PASS ['Document has no viewport-sized layout yet ...']
+
+## 2026-03-03T17:30:00Z
+Summary:
+- Implemented Module 5: MVP Web Dashboard (local dev dashboard)
+  - Maps to "Orchestrator/UI" box in modular_flow.md
+  - Express server: in-memory run store, child process spawning of runner CLI,
+    SSE streaming of real-time stdout/stderr, REST API for CRUD operations
+  - React+Vite frontend: terminal-like run console, journeys table,
+    expandable journey details, artifact download links, copy bug report
+  - Registry: RunRecord with ring buffer (2000 lines), SSE broadcast to clients,
+    max 2 concurrent runs, input clamping (maxPages≤20, maxDepth≤5)
+  - Spawn: resolves runner path relative to server dist, builds CLI args,
+    readline stdout+stderr → appendLog + broadcast, on close → read run.index.json
+  - REST endpoints: POST /api/runs (create), GET /api/runs (list), GET /api/runs/:id (detail),
+    POST /api/runs/:id/stop (SIGTERM+SIGKILL), GET /api/runs/:id/stream (SSE)
+  - Static file serving at /runs/:id/* with path traversal protection (resolve+startsWith)
+  - Frontend types mirrored locally (shared package uses module:Node16, incompatible with Vite bundler)
+  - useSSE hook: EventSource with line/status/indexReady event parsing
+  - Sidebar: NewRunForm + RunCard list with 3s polling while active runs exist
+  - RunConsole: dark monospace terminal with auto-scroll
+  - RunSummary: journeys table with expandable rows → JourneyDetails
+  - CopyBugReport: markdown generation + clipboard copy for FAIL journeys
+  - No auth, no DB, no persistence (MVP scope)
+
+Files changed:
+- apps/server/package.json (new)
+- apps/server/tsconfig.json (new)
+- apps/server/src/registry.ts (new — in-memory run store)
+- apps/server/src/spawn.ts (new — child process spawning)
+- apps/server/src/routes/runs.ts (new — REST + SSE endpoints)
+- apps/server/src/routes/files.ts (new — static artifact serving)
+- apps/server/src/index.ts (new — Express entry)
+- apps/web/package.json (new)
+- apps/web/tsconfig.json (new — standalone, not extending root)
+- apps/web/vite.config.ts (new)
+- apps/web/index.html (new)
+- apps/web/src/main.tsx (new)
+- apps/web/src/index.css (new — dark theme)
+- apps/web/src/types.ts (new — frontend type mirrors)
+- apps/web/src/api.ts (new — fetch wrappers)
+- apps/web/src/hooks/useSSE.ts (new — EventSource hook)
+- apps/web/src/components/NewRunForm.tsx (new)
+- apps/web/src/components/RunCard.tsx (new)
+- apps/web/src/components/Sidebar.tsx (new)
+- apps/web/src/components/RunConsole.tsx (new)
+- apps/web/src/components/MainPanel.tsx (new)
+- apps/web/src/components/RunSummary.tsx (new)
+- apps/web/src/components/JourneyDetails.tsx (new)
+- apps/web/src/components/CopyBugReport.tsx (new)
+- apps/web/src/App.tsx (new)
+- package.json (root — added dev:server, dev:web, build:web scripts)
+- README.md (Module 5 section)
+
+Verify:
+- npm install --include=dev && npm run build
+- npm run build --workspace=apps/server
+- npx --workspace=apps/web vite build
+- PORT=3001 node apps/server/dist/index.js &  # start server
+- curl -s http://localhost:3001/api/health  # {"status":"ok","runs":0}
+- curl -s -X POST http://localhost:3001/api/runs -H "Content-Type: application/json" -d '{"url":"https://example.com","options":{"smoke":true}}'  # creates run
+- curl -s -N http://localhost:3001/api/runs/<runId>/stream  # SSE streaming
+- npm run dev --workspace=apps/web  # starts Vite on 5173 with proxy to 3001
+
+## 2026-03-03T15:45:00Z
+Summary:
+- Implemented Module 4: Journey Builder + Journey Executor
+  - Shared types: JourneyConfig, JourneysMode, StepAction, SelectorSpec, SelectorStrategy,
+    StepSpec, JourneySpec, StepFailureKind, ExecutedJourneyRecord
+  - Zod schemas for all new types; RunConfig extended with journey field
+  - 7 new CLI flags: --journeys, --journey-timeout-ms, --step-timeout-ms,
+    --max-steps-per-journey, --observable-change, --click-wait-ms, --assert-network-activity
+  - Extracted runStep() from smoke.ts → shared playwright/steps.ts with timeout + skip support
+  - classifyError() auto-classifies failures: TIMEOUT, SELECTOR_NOT_FOUND, NAVIGATION_ERROR, etc.
+  - Selector resolution: detectStrategy() (data-testid/id/aria/role/text/css/url),
+    toPlaywrightLocator(), fallback chain
+  - Candidate loader: reads from discovery output or user file, validates with Zod
+  - Journey planner: selects candidates (topN/critical/file), resolves selectors,
+    pre-checks safety per step, truncates to maxStepsPerJourney
+  - Assertions: assertBodyVisible, assertUrlContains, assertTitleContains, assertPageHealthy
+  - Observable change: takeSnapshot (URL + DOM hash + network count), detectChange
+  - Journey executor: one harness per journey, per-step dispatch (goto/click/fill/waitFor/assert),
+    safety re-eval per step, selector fallback on click, observable change after click,
+    wall-clock journey deadline, failure screenshots, full artifact capture
+  - Orchestrator: load → plan → execute each → writeJourneyResult → journeys.executed.json
+  - Run command integration: journey phase after discovery, --journeys file:<path> works
+    without --discover, exit code reflects journey failures
+  - Backward compatible: existing smoke-only and discovery-only commands unchanged
+
+Files changed:
+- packages/shared/src/types.ts (Module 4 types)
+- packages/shared/src/schema.ts (Module 4 schemas)
+- apps/runner/src/config/cli.ts (7 journey flags)
+- apps/runner/src/config/load.ts (parseJourneysFlag, journey config block)
+- apps/runner/src/playwright/steps.ts (new — extracted runStep)
+- apps/runner/src/playwright/smoke.ts (import runStep from steps.ts)
+- apps/runner/src/journeys/types.ts (new)
+- apps/runner/src/journeys/selector.ts (new)
+- apps/runner/src/journeys/loader.ts (new)
+- apps/runner/src/journeys/planner.ts (new)
+- apps/runner/src/journeys/assertions.ts (new)
+- apps/runner/src/journeys/observable.ts (new)
+- apps/runner/src/journeys/executor.ts (new)
+- apps/runner/src/journeys/orchestrator.ts (new)
+- apps/runner/src/artifacts/layout.ts (journeysExecutedPath)
+- apps/runner/src/commands/run.ts (journey execution phase)
+- README.md (Module 4 docs)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/m4 --discover true --journeys topN:3 --headless true --max-pages 3 --max-depth 1
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/m4-file --journeys "file:/tmp/test-candidates.json" --headless true
+- cat ./data/runs/m4-file/run.index.json  # 2 journeys PASS
+- cat ./data/runs/m4-file/safety.events.jsonl  # per-step safety events
+- ls ./data/runs/m4-file/artifacts/journeys/  # per-journey dirs with result.json, trace, video
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/smoke-only --smoke true --headless true  # backward compat
+
+## 2026-03-03T03:30:00Z
+Summary:
+- Implemented Module 3: Discovery + Crawler (BFS site crawl)
+  - Shared types: DiscoveryConfig, DiscoveryMode, PageNode, ActionTarget,
+    ActionTargetType, CandidateJourney, CandidateStep, DiscoveryResult
+  - Zod schemas for all new types; RunConfig extended with discovery field
+  - URL normalization: strip fragment, optional query strip, trailing slash, protocol check
+  - URL filtering: same-origin check, resource URL filter, deny pattern integration
+  - DOM extraction via page.evaluate(): extractLinks() + extractActionTargets()
+    with selector priority (data-testid > id > aria-label > text > CSS)
+  - BFS crawler: bounded by maxPages, maxDepth, wall-clock timeout;
+    safety evaluate() + writeSafetyEvent() on every NAVIGATE; resilient error handling
+  - Candidate journey generation: P0 (nav links), P1 (search/login), P2 (forms)
+  - Markdown discovery report with summary, site map table, risky targets, candidates
+  - 8 new CLI flags: --discover, --max-depth, --same-origin-only, --include-query-params,
+    --action-limit-per-page, --discovery-timeout-ms, --discovery-mode, --save-screenshots
+  - Run command integration: discovery phase after smoke, writeRunIndex extended
+  - Backward compatible: --discover false (default) keeps behavior identical to Module 2
+
+Files changed:
+- packages/shared/src/types.ts (Module 3 types)
+- packages/shared/src/schema.ts (Module 3 schemas)
+- apps/runner/src/discovery/normalize.ts (new)
+- apps/runner/src/discovery/filters.ts (new)
+- apps/runner/src/discovery/types.ts (new)
+- apps/runner/src/discovery/extract.ts (new)
+- apps/runner/src/discovery/candidates.ts (new)
+- apps/runner/src/discovery/crawler.ts (new)
+- apps/runner/src/reporting/discovery_md.ts (new)
+- apps/runner/src/artifacts/layout.ts (7 discovery path helpers)
+- apps/runner/src/config/cli.ts (8 discovery flags)
+- apps/runner/src/config/load.ts (discovery config block)
+- apps/runner/src/commands/run.ts (discovery phase integration)
+- apps/runner/src/run/results.ts (writeRunIndex accepts optional discovery param)
+- README.md (Module 3 docs)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/discover --discover true --max-pages 3 --max-depth 1 --headless true
+- ls ./data/runs/discover/artifacts/discovery/  # site.map.json, page.actions.json, etc.
+- cat ./data/runs/discover/artifacts/discovery/discovery.md
+- cat ./data/runs/discover/run.index.json | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('discovery'), indent=2))"
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/both --smoke true --discover true --headless true  # combined
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/smoke-only --smoke true --headless true  # backward compat
+
+## 2026-03-03T02:45:00Z
+Summary:
+- UX polish: renamed misleading --har flag to --network-events
+  - PlaywrightConfig.har → PlaywrightConfig.networkEvents (types + schema)
+  - CLI: --har → --network-events
+  - Config loader updated for new field name
+  - smoke.ts condition updated: config.playwright.har → config.playwright.networkEvents
+  - README CLI flags table and examples updated
+  - ArtifactKind "har" retained in shared types for future real-HAR support
+
+Files changed:
+- packages/shared/src/types.ts (PlaywrightConfig.har → .networkEvents)
+- packages/shared/src/schema.ts (har → networkEvents in PlaywrightConfigSchema)
+- apps/runner/src/config/cli.ts (--har → --network-events, CliOptions.har → .networkEvents)
+- apps/runner/src/config/load.ts (har → networkEvents)
+- apps/runner/src/playwright/smoke.ts (config.playwright.har → .networkEvents)
+- README.md (flag table + example commands)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/flag-test --smoke true --headless true --network-events true
+- ls ./data/runs/flag-test/artifacts/journeys/smoke/network.events.json
+
+## 2026-03-03T02:30:00Z
+Summary:
+- Applied Module 2 Patch Plan (PATCHES 0–7):
+  PATCH 0: Baseline verified — smoke PASS before changes
+  PATCH 1: Standardized network capture format
+    - Added NetworkEvent type + schema to shared package
+    - Renamed recorder field from networkEntries → networkEvents
+    - Renamed artifact from network.json (kind "har") → network.events.json (kind "network_events")
+    - Added networkEventsPath() to layout.ts
+  PATCH 2: Enforce relative artifact paths
+    - Added assertRelativePath() to writer.ts
+    - normalizeArtifactPaths() in results.ts validates all paths before writing
+  PATCH 3: Deterministic journey folder
+    - Added ensureCleanDir() to writer.ts (rm + mkdir)
+    - createHarness now cleans journey dir on start to prevent stale files
+  PATCH 4: Stronger safety logging
+    - Added writeSafetyEvent() one-call helper to events.ts
+    - smoke.ts now always logs NAVIGATE decision, not just blocked/override
+  PATCH 5: Video status tracking
+    - closeHarness returns { artifacts, video: VideoStatus }
+    - VideoStatus { enabled, saved, reason? } included in JourneyResult
+  PATCH 6: New artifacts list command
+    - qa-agent artifacts list --out <runDir>
+    - Reads run.index.json, prints all artifacts with OK/MISSING status
+  PATCH 7: README updated with Module 2 docs, smoke journey, artifacts layout
+
+Files changed:
+- packages/shared/src/types.ts (NetworkEvent, VideoStatus, ArtifactKind update)
+- packages/shared/src/schema.ts (NetworkEventSchema, VideoStatusSchema, updated ArtifactRefSchema)
+- apps/runner/src/playwright/recorder.ts (networkEvents field, NetworkEvent type)
+- apps/runner/src/playwright/smoke.ts (networkEventsPath, writeSafetyEvent, videoStatus)
+- apps/runner/src/playwright/harness.ts (ensureCleanDir, CloseHarnessResult, VideoStatus)
+- apps/runner/src/artifacts/layout.ts (networkEventsPath replaces harPath)
+- apps/runner/src/artifacts/writer.ts (assertRelativePath, ensureCleanDir)
+- apps/runner/src/safety/events.ts (writeSafetyEvent helper)
+- apps/runner/src/run/results.ts (normalizeArtifactPaths)
+- apps/runner/src/commands/artifacts.ts (new)
+- apps/runner/src/index.ts (register artifacts command)
+- README.md (Module 2 docs)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/patch-test --smoke true --headless true --trace true --video true --har true --step-screenshots true
+- cat ./data/runs/patch-test/artifacts/journeys/smoke/network.events.json  # NetworkEvent[]
+- cat ./data/runs/patch-test/safety.events.jsonl  # NAVIGATE logged even when allowed
+- cat ./data/runs/patch-test/artifacts/journeys/smoke/result.json | grep video  # VideoStatus
+- node apps/runner/dist/index.js artifacts list --out ./data/runs/patch-test  # artifacts list command
+
+## 2026-03-03T02:15:00Z
+Summary:
+- All Module 2 acceptance criteria verified:
+  A) Smoke journey PASS against https://example.com — 5 steps, ~1.2s total
+  B) Output files confirmed: run.json, run.index.json, result.json, trace.zip,
+     video.webm, console.log, pageerrors.log, network.json
+  C) Process exits cleanly (exit 0), no hanging Playwright processes
+  D) Module 1 backward compat: run without --smoke still works, validate+dryrun unchanged
+- Fixed video recording: wrapped video.path() in try/catch since fast pages
+  can produce "no video frames" errors on some runs
+
+Files changed:
+- apps/runner/src/playwright/harness.ts (video error handling)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/smoke --smoke true --headless true
+- find ./data/runs/smoke -type f | sort  # expect 10 files
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/no-smoke  # Module 1 mode
+
+## 2026-03-03T02:10:00Z
+Summary:
+- Implemented Module 2 core: Playwright harness + smoke journey + artifact capture
+  - playwright/harness.ts: browser launch, context+tracing+video setup, cleanup
+  - playwright/recorder.ts: console/pageerror/network capture via page events
+  - playwright/smoke.ts: 5-step smoke journey (goto, readyState, title, DOM, HTTP status)
+  - playwright/time.ts: timer helpers
+  - artifacts/layout.ts: deterministic path helpers for journey artifacts
+  - artifacts/writer.ts: safe file writes (ensureDir, JSON, text, append, copy)
+  - run/results.ts: writeJourneyResult + writeRunIndex
+- Updated run command: if --smoke true, executes smoke journey and writes
+  result.json + run.index.json; else falls back to Module 1 behavior
+- Safety integration: NAVIGATE action evaluated before goto; blocked = journey FAIL
+- Network capture uses response/requestfailed events -> network.json (HAR substitute)
+
+Files changed:
+- apps/runner/src/playwright/{harness,recorder,smoke,time}.ts (new)
+- apps/runner/src/artifacts/{layout,writer}.ts (new)
+- apps/runner/src/run/results.ts (new)
+- apps/runner/src/commands/run.ts (rewritten for smoke support)
+
+Verify:
+- npm run build
+- node apps/runner/dist/index.js run --url https://example.com --out ./data/runs/smoke --smoke true --headless true
+
+## 2026-03-03T02:05:00Z
+Summary:
+- Extended shared types and schemas for Module 2:
+  - types.ts: BrowserType, PlaywrightConfig, ArtifactRef, StepResult, JourneyResult,
+    RunIndex, RunIndexJourney; RunConfig now includes playwright field
+  - schema.ts: PlaywrightConfigSchema, ArtifactRefSchema, StepResultSchema,
+    JourneyResultSchema, RunIndexSchema
+- Added 8 new CLI flags: --smoke, --browser, --headless, --timeout-ms, --trace,
+  --video, --har, --step-screenshots
+- Updated config/load.ts to build playwright config with same precedence rules
+- Installed playwright dep in runner workspace
+
+Files changed:
+- packages/shared/src/types.ts (extended)
+- packages/shared/src/schema.ts (extended)
+- apps/runner/src/config/cli.ts (8 new flags)
+- apps/runner/src/config/load.ts (playwright config)
+- apps/runner/package.json (playwright dep)
+
+Verify:
+- npm install --include=dev && npm run build
+- node apps/runner/dist/index.js validate --url https://example.com --out /tmp/x | grep playwright
+
+## 2026-03-03T02:00:00Z
+Summary:
+- Replaced Implementation.txt with template for Module 2.
+- Reviewed modular_flow.md: Module 2 is "Runner Harness (Playwright Core)"
+  which sits between Journey Builder and Artifact Store/Healer/Failure Classifier.
+  It consumes RunConfig+SafetyPolicy from Module 1 and produces artifacts+results.
+
+Files changed:
+- Implementation.txt
+
+Verify:
+- (none)

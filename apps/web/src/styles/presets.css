@@ -1,0 +1,85 @@
+/* ── Panel ── */
+.ui-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) var(--sp-6);
+}
+
+/* ── Badge ── */
+.ui-badge {
+  display: inline-block;
+  padding: 1px var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ── Table ── */
+.ui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-base);
+}
+.ui-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+.ui-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+.ui-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+/* ── Tab bar ── */
+.ui-tabs {
+  display: flex;
+  gap: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--sp-8);
+}
+.ui-tab {
+  padding: var(--sp-4) var(--sp-2);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ui-tab:hover { color: var(--text); }
+.ui-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Chip/Tag ── */
+.ui-chip {
+  display: inline-block;
+  padding: 1px var(--sp-3);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+/* ── Link ── */
+.ui-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+.ui-link:hover { text-decoration: underline; }
+
+/* ── Mono text ── */
+.ui-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
