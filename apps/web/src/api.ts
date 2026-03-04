@@ -1,4 +1,4 @@
-import type { RunSummary, RunDetail, JourneyResult, RunOptions, RepoMetaFile, OwnershipHintsFile, IssuesFile, CoverageResponse, Project, PlannerSelection, RunIndex, ExcludedCandidate, PinnedTestSummary, PinnedTest, JourneySpec, StepEditPatch, ActionTarget, ExecutedJourneyRecord } from "./types";
+import type { RunSummary, RunDetail, JourneyResult, RunOptions, RepoMetaFile, OwnershipHintsFile, IssuesFile, CoverageResponse, Project, PlannerSelection, RunIndex, ExcludedCandidate, PinnedTestSummary, PinnedTest, JourneySpec, StepEditPatch, ActionTarget, ExecutedJourneyRecord, OverlayData } from "./types";
 
 export async function createRun(body: {
   url: string;
@@ -198,6 +198,30 @@ export async function runPinnedTest(slug: string, testId: string): Promise<{ run
 
 export async function deletePinnedTest(slug: string, testId: string): Promise<void> {
   await fetch(`/api/projects/${slug}/pinned-tests/${testId}`, { method: "DELETE" });
+}
+
+export async function captureOverlay(
+  runId: string,
+  projectSlug: string | undefined,
+  pageUrl: string,
+  selectors: Array<{ id: string; selector: string; strategy: string }>,
+): Promise<OverlayData> {
+  const res = await fetch(`/api/runs/${runId}/overlay/capture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pageUrl, selectors }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error ?? `Overlay capture failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return {
+    screenshotUrl: artifactUrl(runId, data.screenshotPath, projectSlug),
+    viewportWidth: data.viewportWidth,
+    viewportHeight: data.viewportHeight,
+    items: data.items,
+  };
 }
 
 export async function repairJourney(runId: string, journeyId: string, patches: StepEditPatch[]): Promise<{ runId: string; pinnedTestId: string }> {

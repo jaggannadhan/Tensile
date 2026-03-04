@@ -4,6 +4,7 @@ import path from "node:path";
 import { runsRouter } from "./routes/runs.js";
 import { filesRouter } from "./routes/files.js";
 import { pinnedRouter } from "./routes/pinned.js";
+import { overlayRouter } from "./routes/overlay.js";
 import { registry } from "./registry.js";
 import { scanProjects, listProjects } from "./projects.js";
 
@@ -33,6 +34,7 @@ app.get("/api/projects/:slug/runs", (req, res) => {
 // API routes
 app.use("/api/runs", runsRouter);
 app.use("/api/projects/:slug/pinned-tests", pinnedRouter);
+app.use("/api/runs/:id/overlay", overlayRouter);
 
 // Static file serving for run artifacts
 app.use("/runs", filesRouter);

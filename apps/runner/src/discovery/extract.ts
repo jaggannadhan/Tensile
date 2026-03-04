@@ -16,6 +16,7 @@ interface RawElement {
   id: string | null;
   dataTestId: string | null;
   placeholder: string | null;
+  bbox: { x: number; y: number; width: number; height: number } | null;
 }
 
 /** Extract all internal links from the current page. */
@@ -100,6 +101,14 @@ export async function extractActionTargets(
           null;
         const placeholder: string | null = htmlEl.placeholder || null;
 
+        let bbox = null;
+        try {
+          const rect = htmlEl.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            bbox = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+          }
+        } catch { /* skip */ }
+
         results.push({
           tagName,
           role,
@@ -112,6 +121,7 @@ export async function extractActionTargets(
           id,
           dataTestId,
           placeholder,
+          bbox,
         });
       }
 
@@ -214,5 +224,6 @@ function toActionTarget(raw: RawElement, pageUrl: string): ActionTarget {
       requiresAuth,
     },
     confidence: computeConfidence(raw),
+    bbox: raw.bbox ?? undefined,
   };
 }

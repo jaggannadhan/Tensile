@@ -225,6 +225,13 @@ export interface PageNode {
   actionCount: number;
 }
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ActionTargetElement {
   tagName: string;
   role?: string;
@@ -250,6 +257,7 @@ export interface ActionTarget {
   element: ActionTargetElement;
   riskFlags: ActionTargetRiskFlags;
   confidence: number;
+  bbox?: BoundingBox;
 }
 
 export type JourneyPriority = "P0" | "P1" | "P2";

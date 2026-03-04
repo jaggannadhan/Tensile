@@ -5,6 +5,72 @@
 # - Append entries in reverse chronological order (newest at top)
 # - Each entry includes: timestamp (ISO), summary, files changed, verify commands
 
+## 2026-03-04T22:00:00Z
+Summary:
+- Embedded Preview for Modify/Repair
+
+  **Part A — Schema: BoundingBox + ActionTarget Extension**
+  - Added BoundingBox interface to packages/shared/src/types.ts
+  - Added optional bbox field to ActionTarget in shared types
+  - Added BoundingBox, ScoreBreakdownEntry, OverlayItem, OverlayData types to apps/web/src/types.ts
+  - Extended TargetSuggestion with breakdown: ScoreBreakdownEntry[]
+
+  **Part B — Discovery: Capture Bounding Boxes**
+  - Extended RawElement with bbox in apps/runner/src/discovery/extract.ts
+  - Added getBoundingClientRect() capture in page.evaluate() loop
+  - Passed bbox through toActionTarget() into ActionTarget output
+
+  **Part C — Server: Overlay Capture Endpoint**
+  - Added playwright dependency to apps/server/package.json
+  - Created apps/server/src/routes/overlay.ts with POST /capture endpoint
+  - Launches headless Playwright, navigates to page, resolves bboxes for up to 30 selectors
+  - Takes viewport screenshot, writes overlay.json metadata
+  - Includes rate limiting (one capture at a time) and 30s timeout
+  - Wired overlayRouter in apps/server/src/index.ts
+
+  **Part D — Scoring Breakdown**
+  - Enhanced scoreTarget() in TargetPicker to build breakdown[] with per-factor deltas
+  - Tracks: label_similarity, selector_quality, confidence, timestamp_penalty, destructive_penalty
+  - Added expandable "Why?" button on each candidate row showing breakdown entries
+
+  **Part E — Before/After Comparison**
+  - Shows comparison block when a candidate is selected: current vs selected target
+  - Displays label, selector, and score for quick visual diff
+
+  **Part F — OverlayPicker Component**
+  - Created apps/web/src/components/OverlayPicker.tsx
+  - Renders page screenshot with numbered bounding box overlays
+  - Uses ResizeObserver for responsive scaling (containerWidth / viewportWidth)
+  - Colored borders by confidence (pass > 0.8, warn < 0.6, accent default)
+  - Hover tooltips with humanLabel, click to select
+  - Selected box gets thicker border + accent background
+
+  **Part G — Integration: List/Overlay Toggle**
+  - Added view mode toggle (List/Preview) in TargetPicker header
+  - Fetches overlay data on demand when switching to Preview mode
+  - Calls captureOverlay() API with top-20 selectors
+  - Graceful fallback: error message with "Use list" button
+  - Added captureOverlay() to apps/web/src/api.ts
+
+  **CSS additions** (apps/web/src/index.css):
+  - View toggle, Why? button, breakdown rows/entries/deltas
+  - Comparison block (before/after)
+  - Overlay picker: container, img, box overlays, labels, tooltips
+
+Files changed:
+  - packages/shared/src/types.ts (BoundingBox + bbox on ActionTarget)
+  - apps/web/src/types.ts (BoundingBox, ScoreBreakdownEntry, OverlayItem, OverlayData, breakdown on TargetSuggestion)
+  - apps/runner/src/discovery/extract.ts (bbox capture in RawElement + page.evaluate + toActionTarget)
+  - apps/server/package.json (playwright dep)
+  - apps/server/src/routes/overlay.ts (new — overlay capture endpoint)
+  - apps/server/src/index.ts (wire overlayRouter)
+  - apps/web/src/api.ts (captureOverlay function)
+  - apps/web/src/components/TargetPicker.tsx (breakdown, Why?, comparison, view toggle)
+  - apps/web/src/components/OverlayPicker.tsx (new — screenshot overlay picker)
+  - apps/web/src/index.css (overlay, breakdown, comparison, toggle CSS)
+
+Verify: npm run build && npm run build:web
+
 ## 2026-03-04T20:00:00Z
 Summary:
 - UI Tokens Consolidation

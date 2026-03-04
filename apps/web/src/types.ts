@@ -312,6 +312,13 @@ export interface PinnedTest {
   tags: string[];
 }
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ActionTarget {
   pageUrl: string;
   actionType: string;
@@ -331,11 +338,32 @@ export interface ActionTarget {
     requiresAuth: boolean;
   };
   confidence: number;
+  bbox?: BoundingBox;
+}
+
+export interface ScoreBreakdownEntry {
+  key: string;
+  delta: number;
+  note: string;
 }
 
 export interface TargetSuggestion extends ActionTarget {
   score: number;
   reasons: string[];
+  breakdown: ScoreBreakdownEntry[];
+}
+
+export interface OverlayItem {
+  id: string;
+  bbox: BoundingBox | null;
+  found: boolean;
+}
+
+export interface OverlayData {
+  screenshotUrl: string;
+  viewportWidth: number;
+  viewportHeight: number;
+  items: OverlayItem[];
 }
 
 // --- Coverage types ---
