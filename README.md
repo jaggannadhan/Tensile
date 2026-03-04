@@ -1,4 +1,10 @@
-# Tensile
+```
+ _____ _____ _   _ ____  ___ _     _____
+|_   _| ____| \ | / ___||_ _| |   | ____|
+  | | |  _| |  \| \___ \ | || |   |  _|
+  | | | |___| |\  |___) || || |___| |___
+  |_| |_____|_| \_|____/|___|_____|_____|
+```
 
 **Interactive QA Agent for Web Apps** — Smoke / Discovery / Journeys / Issues / Modify & Repair
 
@@ -424,3 +430,9 @@ tensile/
 2. **GitHub Actions / CI Mode** — Run on PRs/nightly, upload artifacts, comment summary
 3. **Load/Stress Lane** — API load generator (k6/Locust wrapper), UI concurrency runs, perf regression reporting
 4. **Persistence + Multi-User** — Auth, orgs, run history + search, S3/GCS artifact storage + Postgres metadata
+
+---
+
+## License
+
+[MIT](LICENSE)
