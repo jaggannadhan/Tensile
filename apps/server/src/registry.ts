@@ -176,4 +176,16 @@ export const registry = {
       .filter((r) => r.projectSlug === slug)
       .map(summarize);
   },
+
+  /** Remove all non-running runs from memory (for rescan). */
+  clearNonRunning: () => {
+    for (const [id, r] of runs) {
+      if (r.status !== "running") runs.delete(id);
+    }
+  },
+
+  /** Remove a single run from memory (does not delete disk). */
+  remove: (id: string) => {
+    runs.delete(id);
+  },
 };

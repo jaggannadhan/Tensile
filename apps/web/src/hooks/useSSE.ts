@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SSEEvent } from "../types";
 
-export function useSSE(runId: string | null) {
+export function useSSE(runId: string | null, skip = false) {
   const [lines, setLines] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [indexReady, setIndexReady] = useState(false);
@@ -19,7 +19,7 @@ export function useSSE(runId: string | null) {
     setStagesReady(false);
     setIssuesReady(false);
 
-    if (!runId) return;
+    if (!runId || skip) return;
 
     const es = new EventSource(`/api/runs/${runId}/stream`);
     esRef.current = es;
@@ -60,7 +60,7 @@ export function useSSE(runId: string | null) {
       es.close();
       esRef.current = null;
     };
-  }, [runId]);
+  }, [runId, skip]);
 
   return { lines, status, indexReady, repoMetaReady, stagesReady, issuesReady };
 }

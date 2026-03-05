@@ -30,7 +30,7 @@ function deriveWarnings(result: JourneyResult): string[] {
   }
 
   // Secondary: SOFT_FAIL steps not already covered
-  for (const step of result.steps) {
+  for (const step of result.steps ?? []) {
     if (step.status === "SOFT_FAIL") {
       const msg = step.error?.message ?? `Soft-fail at step "${step.name}"`;
       if (!seen.has(msg)) {

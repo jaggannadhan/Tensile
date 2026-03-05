@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { v4 as uuidv4 } from "uuid";
 import type { JourneySpec, StepEditPatch, ExecutedJourneyRecord, PinnedTest } from "@web-qa-agent/shared";
 import { registry } from "../registry.js";
@@ -63,6 +64,9 @@ runsRouter.get("/:id", (req: Request, res: Response) => {
     return;
   }
 
+  const diskStatus = existsSync(run.outDir) ? "OK" : "MISSING";
+  const historical = run.status !== "running";
+
   res.json({
     runId: run.runId,
     targetUrl: run.targetUrl,
@@ -78,6 +82,8 @@ runsRouter.get("/:id", (req: Request, res: Response) => {
     stages: run.stages,
     issuesReady: run.issuesReady ?? false,
     projectSlug: run.projectSlug,
+    diskStatus,
+    historical,
   });
 });
 

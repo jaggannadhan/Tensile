@@ -5,6 +5,92 @@
 # - Append entries in reverse chronological order (newest at top)
 # - Each entry includes: timestamp (ISO), summary, files changed, verify commands
 
+## 2026-03-04T23:30:00Z
+Summary:
+- Disk Sync + Historical Console UX
+
+  **Problem 1 — Ghost runs:** Deleting data/runs/* on disk left stale entries in the
+  in-memory registry. No way to rescan without restarting the server.
+
+  **Problem 2 — Historical console:** Selecting a finished run showed "Waiting for output..."
+  in the Console tab (SSE-only behavior) instead of useful log file links.
+
+  **Server changes:**
+  - registry.ts: Added `clearNonRunning()` and `remove()` methods
+  - Created routes/admin.ts with POST /api/admin/rescan (clears non-running, re-scans disk)
+    and POST /api/admin/forget-run (removes single run from memory)
+  - index.ts: Wired createAdminRouter(DATA_DIR)
+  - routes/runs.ts: GET /:id now returns `diskStatus: "OK"|"MISSING"` and `historical: boolean`
+
+  **Web changes:**
+  - types.ts: Added diskStatus and historical to RunDetail
+  - api.ts: Added rescanDisk() and forgetRun() functions
+  - useSSE.ts: Added `skip` parameter — skips EventSource for historical runs
+  - useRunData.ts: Skip supplementary fetches when diskStatus is MISSING
+  - App.tsx: Added handleRescan/handleForgetRun callbacks, isHistorical SSE skip,
+    diskStatus MISSING → EmptyState with "Remove from list" CTA
+  - ProjectNav.tsx: Added onRescan prop, refresh (↻) button in sidebar header
+  - RunConsole.tsx: Historical mode shows "No live output" message with links to
+    saved console logs (run-level + per-journey)
+  - Inspector.tsx: Passes historical, runId, projectSlug, journeyIds to RunConsole
+  - index.css: Console historical mode styles (.console-historical, .console-log-links)
+
+Files changed:
+  apps/server/src/registry.ts
+  apps/server/src/routes/admin.ts (new)
+  apps/server/src/routes/runs.ts
+  apps/server/src/index.ts
+  apps/web/src/types.ts
+  apps/web/src/api.ts
+  apps/web/src/hooks/useSSE.ts
+  apps/web/src/hooks/useRunData.ts
+  apps/web/src/App.tsx
+  apps/web/src/components/ProjectNav.tsx
+  apps/web/src/components/RunConsole.tsx
+  apps/web/src/components/Inspector.tsx
+  apps/web/src/index.css
+
+Verify:
+  npm run build && npm run build:web
+  npm run dev
+  # Create run(s), then rm -rf data/runs/<slug>/<runId>
+  # Click ↻ in sidebar → deleted runs disappear
+  # Select historical run → Console shows log links, no SSE connection
+  # Select missing run → EmptyState with "Remove from list" button
+
+## 2026-03-04T23:00:00Z
+Summary:
+- Robust Live Result Parsing (result.steps not iterable)
+
+  **Bug:** UI crashes with `TypeError: result.steps is not iterable` during active topN:10 runs.
+  Root cause: `fetchJourneyResult()` returned raw JSON with no validation — partial/missing
+  result.json files during active runs produced objects with `steps: undefined`.
+
+  **Layer 1 — Safe fetch + normalize (single fix point)**
+  - `fetchJourneyResult()` in api.ts: added `res.ok` check, try/catch on JSON parse,
+    normalizes `steps` and `warnings` to always be arrays, returns `null` on failure
+  - Return type changed to `Promise<JourneyResult | null>`
+
+  **Layer 2 — Belt-and-suspenders guards at every crash site (11+ sites, 6 files)**
+  - `useRunData.ts`: `deriveWarnings()` uses `result.steps ?? []`, fetch loop skips null results
+  - `JourneyDetails.tsx`: local `deriveWarnings()`, `.find()`, `.some()`, `.map()` all guarded
+  - `RunSummary.tsx`: local `deriveWarnings()` guarded
+  - `CopyRunReport.tsx`: local `deriveWarnings()` + `failedSteps` filter guarded
+  - `CopyBugReport.tsx`: `failedSteps` filter + steps iteration guarded
+
+Files changed:
+  - apps/web/src/api.ts (fetchJourneyResult: safe fetch + normalize)
+  - apps/web/src/hooks/useRunData.ts (deriveWarnings guard, null-safe fetch loop)
+  - apps/web/src/components/JourneyDetails.tsx (4 crash sites guarded)
+  - apps/web/src/components/RunSummary.tsx (1 crash site guarded)
+  - apps/web/src/components/CopyRunReport.tsx (2 crash sites guarded)
+  - apps/web/src/components/CopyBugReport.tsx (2 crash sites guarded)
+
+Verify: npm run build:web && npm run dev
+  # Run CyberChef topN:10 — UI does not crash
+  # Journeys list shows smoke + pending journeys updating as they complete
+  # After completion, statuses settle to PASS/WARN/FAIL
+
 ## 2026-03-04T22:00:00Z
 Summary:
 - Embedded Preview for Modify/Repair

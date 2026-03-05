@@ -26,7 +26,7 @@ function deriveWarnings(result: JourneyResult): { stepName?: string; message: st
     }
   }
 
-  for (const step of result.steps) {
+  for (const step of result.steps ?? []) {
     if (step.status === "SOFT_FAIL") {
       const msg = step.error?.message ?? `Soft-fail at step "${step.name}"`;
       if (!seen.has(msg)) {
@@ -135,7 +135,7 @@ export function JourneyDetails({ runId, resultPath, projectSlug, journeyId, onSa
 
   const handleModifyFirst = useCallback(() => {
     if (!result) return;
-    const firstModifiable = result.steps.find(isModifiableStep);
+    const firstModifiable = (result.steps ?? []).find(isModifiableStep);
     if (firstModifiable) setModifyingStep(firstModifiable.index);
   }, [result]);
 
@@ -145,7 +145,7 @@ export function JourneyDetails({ runId, resultPath, projectSlug, journeyId, onSa
   const hasWarnings = warnings.length > 0;
   const displayStatus = result.status === "FAIL" ? "FAIL" : hasWarnings ? "WARN" : "PASS";
   const hasPatches = patches.length > 0;
-  const hasModifiableSteps = result.steps.some(isModifiableStep);
+  const hasModifiableSteps = (result.steps ?? []).some(isModifiableStep);
 
   return (
     <div className="journey-details">
@@ -205,7 +205,7 @@ export function JourneyDetails({ runId, resultPath, projectSlug, journeyId, onSa
       )}
 
       <h5>Steps</h5>
-      {result.steps.map((step) => {
+      {(result.steps ?? []).map((step) => {
         const isWarn = step.status === "SOFT_FAIL";
         const isFail = step.status === "FAIL";
         const hasPatch = patches.some((p) => p.stepIndex === step.index);

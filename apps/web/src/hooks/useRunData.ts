@@ -47,7 +47,7 @@ export function deriveWarnings(result: JourneyResult): string[] {
   for (const w of result.warnings ?? []) {
     if (!seen.has(w)) { seen.add(w); out.push(w); }
   }
-  for (const step of result.steps) {
+  for (const step of result.steps ?? []) {
     if (step.status === "SOFT_FAIL") {
       const msg = step.error?.message ?? `Soft-fail at step "${step.name}"`;
       if (!seen.has(msg)) { seen.add(msg); out.push(msg); }
@@ -137,6 +137,7 @@ export function useRunData(
   useEffect(() => {
     if (!runId || !detail) return;
     if (detail.status === "running") return;
+    if (detail.diskStatus === "MISSING") return;
     if (terminalLoadedRef.current) return;
     terminalLoadedRef.current = true;
 
@@ -194,7 +195,7 @@ export function useRunData(
         journeys.map(async (j) => {
           try {
             const r = await fetchJourneyResult(runId, j.resultPath, projectSlug);
-            results.set(j.journeyId, r);
+            if (r) results.set(j.journeyId, r);
           } catch { /* ignore missing */ }
         }),
       ).then(() => setJourneyResults(new Map(results)));

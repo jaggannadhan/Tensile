@@ -38,6 +38,8 @@ export interface RunDetail extends RunSummary {
   runIndex?: RunIndex;
   repoMeta?: RepoMetaFile;
   stages?: StageStats;
+  diskStatus?: "OK" | "MISSING";
+  historical?: boolean;
 }
 
 export interface RunIndex {

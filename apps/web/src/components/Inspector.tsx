@@ -60,7 +60,14 @@ export function Inspector({
           />
         )}
         {activeTab === "console" && (
-          <RunConsole lines={lines} status={sseStatus} />
+          <RunConsole
+            lines={lines}
+            status={sseStatus}
+            historical={detail?.historical}
+            runId={runId}
+            projectSlug={projectSlug}
+            journeyIds={detail?.runIndex?.journeys.map((j) => j.journeyId)}
+          />
         )}
         {activeTab === "coverage" && (
           coverage

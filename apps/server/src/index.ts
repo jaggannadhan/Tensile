@@ -5,6 +5,7 @@ import { runsRouter } from "./routes/runs.js";
 import { filesRouter } from "./routes/files.js";
 import { pinnedRouter } from "./routes/pinned.js";
 import { overlayRouter } from "./routes/overlay.js";
+import { createAdminRouter } from "./routes/admin.js";
 import { registry } from "./registry.js";
 import { scanProjects, listProjects } from "./projects.js";
 
@@ -35,6 +36,7 @@ app.get("/api/projects/:slug/runs", (req, res) => {
 app.use("/api/runs", runsRouter);
 app.use("/api/projects/:slug/pinned-tests", pinnedRouter);
 app.use("/api/runs/:id/overlay", overlayRouter);
+app.use("/api/admin", createAdminRouter(DATA_DIR));
 
 // Static file serving for run artifacts
 app.use("/runs", filesRouter);

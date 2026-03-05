@@ -264,6 +264,25 @@ body {
   word-break: break-all;
 }
 
+.console-historical {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.console-historical p { margin: 0 0 8px; }
+.console-log-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.console-log-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+}
+.console-log-link:hover { text-decoration: underline; }
+
 /* Summary panel */
 .summary {
   border-top: 1px solid var(--border);

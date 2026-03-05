@@ -15,7 +15,7 @@ function generateBugReport(
   repoMeta?: RepoMetaFile | null,
   ownershipHint?: OwnershipHint | null,
 ): string {
-  const failedSteps = r.steps.filter((s) => s.status === "FAIL");
+  const failedSteps = (r.steps ?? []).filter((s) => s.status === "FAIL");
   const lines: string[] = [
     `## Bug Report: ${r.name}`,
     "",
@@ -57,7 +57,7 @@ function generateBugReport(
   }
 
   lines.push("", "### Steps");
-  for (const s of r.steps) {
+  for (const s of r.steps ?? []) {
     lines.push(
       `${s.index + 1}. [${s.status}] ${s.name} (${s.durationMs}ms)`,
     );

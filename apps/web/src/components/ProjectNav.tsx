@@ -11,6 +11,7 @@ interface Props {
   onSelectRun: (id: string) => void;
   onNewRun: (runId: string) => void;
   onRunsUpdate: (runs: RunSummary[]) => void;
+  onRescan?: () => void;
   showNewRunModal?: boolean;
   onCloseNewRunModal?: () => void;
 }
@@ -22,7 +23,7 @@ interface ProjectGroup {
 }
 
 export function ProjectNav({
-  runs, selectedRunId, onSelectRun, onNewRun, onRunsUpdate,
+  runs, selectedRunId, onSelectRun, onNewRun, onRunsUpdate, onRescan,
   showNewRunModal, onCloseNewRunModal,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -133,11 +134,18 @@ export function ProjectNav({
 
   return (
     <>
-      <div className="sidebar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="sidebar-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
         <span>Tensile</span>
-        <button className="btn btn-sm btn-primary" style={{ margin: 0, width: "auto" }} onClick={() => setLocalModal(true)}>
-          + New Run
-        </button>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {onRescan && (
+            <button className="btn btn-sm btn-ghost" onClick={onRescan} title="Rescan disk">
+              &#x21bb;
+            </button>
+          )}
+          <button className="btn btn-sm btn-primary" style={{ margin: 0, width: "auto" }} onClick={() => setLocalModal(true)}>
+            + New Run
+          </button>
+        </div>
       </div>
       <div className="sidebar-runs">
         {runs.length === 0 && (

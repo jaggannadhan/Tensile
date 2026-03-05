@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useSSE } from "./hooks/useSSE";
 import { useRunData } from "./hooks/useRunData";
-import { stopRun, createPinnedTest, repairJourney } from "./api";
+import { stopRun, createPinnedTest, repairJourney, rescanDisk, forgetRun, fetchRuns } from "./api";
 import type { JourneySpec, StepEditPatch } from "./types";
 import { DashboardLayout } from "./layout/DashboardLayout";
 import { ProjectNav } from "./components/ProjectNav";
@@ -30,9 +30,10 @@ export function App() {
 
   const selectedRun = runs.find((r) => r.runId === selectedRunId);
   const projectSlug = selectedRun?.projectSlug;
+  const isHistorical = !!selectedRun && selectedRun.status !== "running";
 
-  // SSE for live updates
-  const { lines, status: sseStatus, indexReady, repoMetaReady, stagesReady, issuesReady } = useSSE(selectedRunId);
+  // SSE for live updates (skip for historical runs — no live stream)
+  const { lines, status: sseStatus, indexReady, repoMetaReady, stagesReady, issuesReady } = useSSE(selectedRunId, isHistorical);
 
   // Central data hook
   const runData = useRunData(selectedRunId, projectSlug, { indexReady, stagesReady, issuesReady, repoMetaReady });
@@ -94,6 +95,26 @@ export function App() {
     setShowNewRunModal(true);
   }, []);
 
+  const handleRescan = useCallback(async () => {
+    await rescanDisk();
+    const data = await fetchRuns();
+    setRuns(data);
+    if (selectedRunId && !data.find((r) => r.runId === selectedRunId)) {
+      setSelectedRunId(null);
+      setSelectedEntity(null);
+    }
+  }, [selectedRunId]);
+
+  const handleForgetRun = useCallback(async (runId: string) => {
+    await forgetRun(runId);
+    const data = await fetchRuns();
+    setRuns(data);
+    if (selectedRunId === runId) {
+      setSelectedRunId(null);
+      setSelectedEntity(null);
+    }
+  }, [selectedRunId]);
+
   const handleSavePinnedTest = useCallback(async (journeySpec: JourneySpec, patches: StepEditPatch[], name: string, tags: string[]) => {
     if (!selectedRunId || !projectSlug) return;
     const entity = selectedEntity;
@@ -144,7 +165,14 @@ export function App() {
         projectSlug={projectSlug}
         onStop={handleStop}
       />
-      {runData.detail ? (
+      {runData.detail?.diskStatus === "MISSING" ? (
+        <EmptyState
+          title="Run folder not found"
+          hint="The data for this run was deleted or moved from disk."
+          error
+          action={{ label: "Remove from list", onClick: () => handleForgetRun(selectedRunId!) }}
+        />
+      ) : runData.detail ? (
         <>
           <StageTimeline
             stages={runData.detail.stages}
@@ -213,6 +241,7 @@ export function App() {
           onSelectRun={handleSelectRun}
           onNewRun={handleNewRun}
           onRunsUpdate={handleRunsUpdate}
+          onRescan={handleRescan}
           showNewRunModal={showNewRunModal}
           onCloseNewRunModal={() => setShowNewRunModal(false)}
         />

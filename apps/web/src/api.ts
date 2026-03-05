@@ -45,10 +45,19 @@ export async function fetchJourneyResult(
   runId: string,
   resultPath: string,
   projectSlug?: string,
-): Promise<JourneyResult> {
-  const base = projectSlug ? `/runs/${projectSlug}/${runId}` : `/runs/${runId}`;
-  const res = await fetch(`${base}/${resultPath}`);
-  return res.json();
+): Promise<JourneyResult | null> {
+  try {
+    const base = projectSlug ? `/runs/${projectSlug}/${runId}` : `/runs/${runId}`;
+    const res = await fetch(`${base}/${resultPath}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || typeof data !== "object") return null;
+    data.steps = Array.isArray(data.steps) ? data.steps : [];
+    data.warnings = Array.isArray(data.warnings) ? data.warnings : [];
+    return data as JourneyResult;
+  } catch {
+    return null;
+  }
 }
 
 export function artifactUrl(runId: string, artifactPath: string, projectSlug?: string): string {
@@ -222,6 +231,21 @@ export async function captureOverlay(
     viewportHeight: data.viewportHeight,
     items: data.items,
   };
+}
+
+// --- Admin ---
+
+export async function rescanDisk(): Promise<{ projects: number; runs: number }> {
+  const res = await fetch("/api/admin/rescan", { method: "POST" });
+  return res.json();
+}
+
+export async function forgetRun(runId: string): Promise<void> {
+  await fetch("/api/admin/forget-run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ runId }),
+  });
 }
 
 export async function repairJourney(runId: string, journeyId: string, patches: StepEditPatch[]): Promise<{ runId: string; pinnedTestId: string }> {
