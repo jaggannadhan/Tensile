@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchJourneyResult, fetchRepoMeta, fetchOwnershipHints, fetchExecutedJourneys, artifactUrl } from "../api";
 import { CopyBugReport } from "./CopyBugReport";
-import { TargetPicker } from "./TargetPicker";
+import { ModifyRepairModal } from "./ModifyRepairModal";
 import { SavePinnedTestModal } from "./SavePinnedTestModal";
 import type { JourneyResult, RepoMetaFile, OwnershipHint, StepResult, StepEditPatch, SelectorSpec, JourneySpec } from "../types";
 
@@ -257,15 +257,7 @@ export function JourneyDetails({ runId, resultPath, projectSlug, journeyId, onSa
               )}
             </div>
 
-            {isModifying && (
-              <TargetPicker
-                runId={runId}
-                projectSlug={projectSlug}
-                currentStep={step}
-                onSelect={(selector, label) => handleSelectTarget(step.index, step, selector, label)}
-                onCancel={handleCancelModify}
-              />
-            )}
+            {/* Modal renders once outside the loop */}
           </div>
         );
       })}
@@ -325,6 +317,22 @@ export function JourneyDetails({ runId, resultPath, projectSlug, journeyId, onSa
         patchCount={patches.length}
         patches={patches}
       />
+
+      {modifyingStep !== null && (result.steps ?? [])[modifyingStep] && (
+        <ModifyRepairModal
+          key={modifyingStep}
+          open={modifyingStep !== null}
+          onClose={handleCancelModify}
+          runId={runId}
+          projectSlug={projectSlug}
+          currentStep={(result.steps ?? [])[modifyingStep]!}
+          stepIndex={modifyingStep}
+          onApply={(selector, label) => {
+            const step = (result.steps ?? [])[modifyingStep];
+            if (step) handleSelectTarget(modifyingStep, step, selector, label);
+          }}
+        />
+      )}
     </div>
   );
 }

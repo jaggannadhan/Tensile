@@ -15,11 +15,11 @@ const SHOW_LIMIT = 20;
 
 const TIMESTAMP_RE = /\b(last|ago|today|yesterday|version|build|v\d|updated|modified|\d{2}:\d{2}|\d{4}-\d{2})/i;
 
-function tokenize(s: string): string[] {
+export function tokenize(s: string): string[] {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
 }
 
-function tokenOverlap(a: string, b: string): number {
+export function tokenOverlap(a: string, b: string): number {
   const tokensA = tokenize(a);
   const tokensB = new Set(tokenize(b));
   if (tokensA.length === 0 || tokensB.size === 0) return 0;
@@ -30,7 +30,7 @@ function tokenOverlap(a: string, b: string): number {
   return matches / Math.max(tokensA.length, tokensB.size);
 }
 
-function scoreTarget(target: ActionTarget, step: StepResult): TargetSuggestion {
+export function scoreTarget(target: ActionTarget, step: StepResult): TargetSuggestion {
   let score = 0;
   const reasons: string[] = [];
   const breakdown: ScoreBreakdownEntry[] = [];

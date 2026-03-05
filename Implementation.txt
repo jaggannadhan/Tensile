@@ -5,6 +5,47 @@
 # - Append entries in reverse chronological order (newest at top)
 # - Each entry includes: timestamp (ISO), summary, files changed, verify commands
 
+## 2026-03-05T00:00:00Z
+Summary:
+- Modify/Repair Fullscreen Modal (Preview-first)
+
+  **Problem:** TargetPicker rendered inline in the narrow Inspector pane, causing the
+  preview image and overlay boxes to overflow. Users couldn't see a full preview.
+
+  **Solution:** Moved Modify/Repair into a dedicated fullscreen modal with two-column layout:
+  - Left panel (65%): Screenshot preview with OverlayPicker, Fit/100% zoom controls
+  - Right panel (35%): Search, scrollable candidate list with numbered badges,
+    before/after comparison, score breakdown (Why?), custom selector input
+  - Dialog footer with Cancel/Apply actions
+
+  **Changes:**
+  - Dialog.tsx: Added `size` prop ("md"|"lg"|"xl"|"fullscreen") with CSS class mapping.
+    Backward compatible — existing `width` prop still works.
+  - TargetPicker.tsx: Exported `tokenize`, `tokenOverlap`, `scoreTarget` for reuse
+  - ModifyRepairModal.tsx (new): Fullscreen two-column modal. Fetches page.actions.json
+    and captureOverlay on mount. Reuses OverlayPicker and scoring from TargetPicker.
+  - JourneyDetails.tsx: Replaced inline TargetPicker with ModifyRepairModal rendered
+    once outside the step loop. Uses `key={modifyingStep}` for fresh mount per step.
+  - index.css: Added `.modal-card-lg/xl/fullscreen` size classes, fullscreen flex layout
+    with sticky header/footer, `.modify-modal-*` two-column layout styles,
+    candidate list, comparison, breakdown, zoom control styles.
+
+Files changed:
+  apps/web/src/components/ui/Dialog.tsx
+  apps/web/src/components/TargetPicker.tsx
+  apps/web/src/components/ModifyRepairModal.tsx (new)
+  apps/web/src/components/JourneyDetails.tsx
+  apps/web/src/index.css
+
+Verify:
+  npm run build && npm run build:web
+  npm run dev
+  # Open a completed run with journeys
+  # Click "Modify" on a step → fullscreen modal with preview
+  # Select candidate → preview highlights, before/after shown
+  # Use Fit/100% zoom toggle
+  # Click Apply → modal closes, step shows "Modified" badge
+
 ## 2026-03-04T23:30:00Z
 Summary:
 - Disk Sync + Historical Console UX

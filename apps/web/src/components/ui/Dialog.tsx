@@ -4,10 +4,18 @@ interface DialogProps {
   open: boolean;
   onClose: () => void;
   width?: number;
+  size?: "md" | "lg" | "xl" | "fullscreen";
   children: ReactNode;
 }
 
-export function Dialog({ open, onClose, width, children }: DialogProps) {
+const SIZE_CLASS: Record<string, string> = {
+  md: "modal-card modal-card-wide",
+  lg: "modal-card modal-card-lg",
+  xl: "modal-card modal-card-xl",
+  fullscreen: "modal-card modal-card-fullscreen",
+};
+
+export function Dialog({ open, onClose, width, size, children }: DialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -47,14 +55,18 @@ export function Dialog({ open, onClose, width, children }: DialogProps) {
 
   if (!open) return null;
 
-  const cardClass = width && width > 440 ? "modal-card modal-card-wide" : "modal-card";
+  const cardClass = size
+    ? SIZE_CLASS[size] ?? "modal-card"
+    : width && width > 440
+      ? "modal-card modal-card-wide"
+      : "modal-card";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
         ref={cardRef}
         className={cardClass}
-        style={width && width !== 440 && width !== 520 ? { width } : undefined}
+        style={!size && width && width !== 440 && width !== 520 ? { width } : undefined}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
