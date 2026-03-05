@@ -35,3 +35,6 @@ playwright-report/
 
 # Misc
 *.tsbuildinfo
+
+# Implementation log (local only)
+Implementation.txt
