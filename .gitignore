@@ -36,5 +36,8 @@ playwright-report/
 # Misc
 *.tsbuildinfo
 
+# CI run output
+ci-runs/
+
 # Implementation log (local only)
 Implementation.txt

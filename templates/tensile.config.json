@@ -1,0 +1,20 @@
+{
+  "targets": [
+    {
+      "name": "My App",
+      "url": "https://your-app-url.com",
+      "options": {
+        "smoke": true,
+        "discover": true,
+        "journeys": "topN:5",
+        "headless": true,
+        "maxPages": 10,
+        "maxDepth": 2
+      }
+    }
+  ],
+  "ci": {
+    "failOn": "fail",
+    "artifactRetentionDays": 7
+  }
+}

@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./commands/*": "./dist/commands/*.js",
+    "./ci/*": "./dist/ci/*.js",
+    "./config/*": "./dist/config/*.js"
+  },
   "bin": {
     "qa-agent": "./dist/index.js"
   },

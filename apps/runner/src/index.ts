@@ -4,6 +4,7 @@ import { registerValidateCommand } from "./commands/validate.js";
 import { registerRunCommand } from "./commands/run.js";
 import { registerDryrunCommand } from "./commands/dryrun.js";
 import { registerArtifactsCommand } from "./commands/artifacts.js";
+import { registerCiCommand } from "./commands/ci.js";
 
 const program = new Command();
 
@@ -16,6 +17,7 @@ registerValidateCommand(program);
 registerRunCommand(program);
 registerDryrunCommand(program);
 registerArtifactsCommand(program);
+registerCiCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error("Unexpected error:", (err as Error).message);

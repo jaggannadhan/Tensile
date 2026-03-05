@@ -1,0 +1,84 @@
+name: Tensile CI
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  tensile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+
+      - name: Run Tensile CI
+        run: node apps/runner/dist/index.js ci --config tensile.config.json --out ./ci-runs
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tensile-ci-${{ github.sha }}
+          path: ./ci-runs
+          retention-days: 7
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f ./ci-runs/report.md ]; then
+            cat ./ci-runs/report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: PR Comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary;
+            try {
+              summary = JSON.parse(fs.readFileSync('./ci-runs/summary.json', 'utf8'));
+            } catch {
+              return; // no summary produced
+            }
+            const status = summary.overall.status;
+            const icon = status === 'PASS' ? ':white_check_mark:' : status === 'WARN' ? ':warning:' : ':x:';
+            const targets = summary.targets.map(t =>
+              `| ${t.name} | ${t.status} | ${t.journeys?.executed ?? 0} | ${t.issues?.total ?? 0} |`
+            ).join('\n');
+            const body = `## ${icon} Tensile CI: ${status}\n\n| Target | Status | Journeys | Issues |\n|--------|--------|----------|--------|\n${targets}\n\n[Artifacts](../actions/runs/${process.env.GITHUB_RUN_ID})`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body?.includes('Tensile CI:'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

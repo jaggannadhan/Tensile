@@ -1,0 +1,20 @@
+name: Tensile QA
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  tensile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tensile-ai/tensile-ci@v1
+        with:
+          config: tensile.config.json
+          failOn: fail

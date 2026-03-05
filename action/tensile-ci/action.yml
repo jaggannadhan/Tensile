@@ -1,0 +1,59 @@
+name: "Tensile CI"
+description: "Run Tensile automated UI quality checks"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  config:
+    description: "Path to tensile.config.json"
+    default: "tensile.config.json"
+  failOn:
+    description: "When to fail the job: fail | warn | never"
+    default: "fail"
+  outDir:
+    description: "Output directory for CI run artifacts"
+    default: "ci-runs"
+  version:
+    description: "npm version of @tensile/cli to install"
+    default: "latest"
+  installDeps:
+    description: "Install Playwright browsers (set false if pre-cached)"
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install Tensile CLI
+      run: npm install -g @tensile/cli@${{ inputs.version }}
+      shell: bash
+
+    - name: Install Playwright browsers
+      if: inputs.installDeps == 'true'
+      run: npx playwright install --with-deps chromium
+      shell: bash
+
+    - name: Run Tensile CI
+      run: tensile ci --config ${{ inputs.config }} --out ${{ inputs.outDir }}
+      shell: bash
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tensile-ci-${{ github.sha }}
+        path: ${{ inputs.outDir }}
+        retention-days: 7
+
+    - name: Job summary
+      if: always()
+      run: |
+        if [ -f "${{ inputs.outDir }}/report.md" ]; then
+          cat "${{ inputs.outDir }}/report.md" >> $GITHUB_STEP_SUMMARY
+        fi
+      shell: bash
